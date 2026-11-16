@@ -1,11 +1,11 @@
 {
-    "name": "tugas_akhir_app",
-    "short_name": "tugas_akhir_app",
+    "name": "ModulAjar",
+    "short_name": "ModulAjar",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#0F766E",
+    "theme_color": "#0F766E",
+    "description": "Aplikasi pengelolaan modul ajar untuk guru: susun, kelola, dan terbitkan perangkat ajar Kurikulum Merdeka.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
