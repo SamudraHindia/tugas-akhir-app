@@ -1,5 +1,16 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
+/// Kunci penyimpanan lokal yang dipakai repository lokal dan pengujian.
+class AppStorageKeys {
+  const AppStorageKeys._();
+
+  static const String modules = 'modulajar.modules.v1';
+  static const String activities = 'modulajar.activities.v1';
+  static const String profile = 'modulajar.profile.v1';
+  static const String theme = 'modulajar.theme.v1';
+  static const String initialized = 'modulajar.initialized.v1';
+}
+
 /// Abstraksi penyimpanan agar controller mudah diuji tanpa plugin platform.
 abstract interface class AppStorage {
   Future<String?> read(String key);
@@ -38,8 +49,7 @@ class SharedPreferencesStorage implements AppStorage {
 
 /// Penyimpanan in-memory untuk pengujian dan fallback.
 class InMemoryStorage implements AppStorage {
-  InMemoryStorage([Map<String, String>? initial])
-    : _data = {...?initial};
+  InMemoryStorage([Map<String, String>? initial]) : _data = {...?initial};
 
   final Map<String, String> _data;
 

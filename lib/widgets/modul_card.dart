@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../core/app_theme.dart';
 import '../core/formatters.dart';
 import '../core/subject_visual.dart';
 import '../data/models/modul_ajar.dart';
+import 'press_scale.dart';
 import 'status_badge.dart';
 import 'subject_avatar.dart';
 
@@ -32,24 +34,31 @@ class ModulCard extends StatelessWidget {
 
     return Padding(
       padding: margin,
-      child: Material(
-        color: theme.colorScheme.surface,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(18),
-          side: BorderSide(
-            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.55),
+      child: PressScale(
+        enabled: onTap != null,
+        child: Material(
+          color: theme.colorScheme.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+            side: BorderSide(
+              color: theme.colorScheme.outlineVariant.withValues(alpha: 0.85),
+            ),
           ),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onTap == null
+                ? null
+                : () {
+                    HapticFeedback.selectionClick();
+                    onTap!();
+                  },
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(15, 15, 8, 14),
+            padding: const EdgeInsets.fromLTRB(12, 12, 6, 11),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SubjectAvatar(mapel: modul.mataPelajaran, size: 46),
-                const SizedBox(width: 13),
+                SubjectAvatar(mapel: modul.mataPelajaran, size: 42),
+                const SizedBox(width: 11),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -63,20 +72,27 @@ class ModulCard extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                               style: theme.textTheme.labelSmall?.copyWith(
                                 color: visual.color,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 0.6,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: 0.3,
                                 fontSize: 10,
                               ),
                             ),
                           ),
-                          if (modul.favorit) ...[
-                            const SizedBox(width: 4),
-                            const Icon(
-                              Icons.star_rounded,
-                              size: 17,
-                              color: AppColors.accent,
+                          const SizedBox(width: 4),
+                          AnimatedScale(
+                            scale: modul.favorit ? 1 : 0.55,
+                            duration: const Duration(milliseconds: 240),
+                            curve: Curves.easeOutBack,
+                            child: AnimatedOpacity(
+                              opacity: modul.favorit ? 1 : 0,
+                              duration: const Duration(milliseconds: 160),
+                              child: const Icon(
+                                Icons.star_rounded,
+                                size: 17,
+                                color: AppColors.accent,
+                              ),
                             ),
-                          ],
+                          ),
                         ],
                       ),
                       const SizedBox(height: 4),
@@ -85,7 +101,8 @@ class ModulCard extends StatelessWidget {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.titleSmall?.copyWith(
-                          fontSize: 14.5,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
                           height: 1.3,
                         ),
                       ),
@@ -184,6 +201,7 @@ class ModulCard extends StatelessWidget {
           ),
         ),
       ),
+      ),
     );
   }
 }
@@ -226,7 +244,11 @@ class _MenuRow extends StatelessWidget {
     final theme = Theme.of(context);
     return Row(
       children: [
-        Icon(icon, size: 19, color: color ?? theme.colorScheme.onSurfaceVariant),
+        Icon(
+          icon,
+          size: 19,
+          color: color ?? theme.colorScheme.onSurfaceVariant,
+        ),
         const SizedBox(width: 10),
         Text(label, style: TextStyle(color: color)),
       ],

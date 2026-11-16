@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../app_scope.dart';
 import '../../core/app_theme.dart';
@@ -53,73 +54,144 @@ class HomeScreen extends StatelessWidget {
     final latest = controller.modulTerbaru.take(3).toList();
     final ringkasan = controller.ringkasanMapel.take(4).toList();
     final activities = controller.activities.take(3).toList();
+    final nameParts = controller.profile.nama.trim().split(RegExp(r'\s+'));
+    final firstName = nameParts.isEmpty ? 'Guru' : nameParts.first;
+    final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
-      body: CustomScrollView(
-        slivers: [
-          SliverToBoxAdapter(
-            child: _HomeHeader(
-              controller: controller,
-              now: now,
-              onOpenProfile: () => onNavigateTab(3),
-              onSearch: () => Navigator.of(context).push<void>(
-                MaterialPageRoute<void>(
-                  builder: (_) => const ModulSearchScreen(),
+      appBar: AppBar(
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'ModulAjar',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+            ),
+            Text(
+              'Sistem pengelolaan modul ajar',
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+                fontSize: 10.5,
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          IconButton(
+            tooltip: isDark ? 'Gunakan tema terang' : 'Gunakan tema gelap',
+            onPressed: () =>
+                controller.ubahTema(isDark ? ThemeMode.light : ThemeMode.dark),
+            icon: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 260),
+              transitionBuilder: (child, animation) => RotationTransition(
+                turns: Tween(begin: 0.8, end: 1.0).animate(animation),
+                child: FadeTransition(opacity: animation, child: child),
+              ),
+              child: Icon(
+                isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+                key: ValueKey(isDark),
+                size: 20,
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(left: 2, right: 14),
+            child: InkWell(
+              onTap: () => onNavigateTab(3),
+              borderRadius: BorderRadius.circular(20),
+              child: CircleAvatar(
+                radius: 16,
+                backgroundColor: theme.colorScheme.primary,
+                child: Text(
+                  controller.profile.inisial,
+                  style: TextStyle(
+                    color: theme.colorScheme.onPrimary,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 11,
+                  ),
                 ),
               ),
             ),
           ),
-          SliverToBoxAdapter(
-            child: PageWidth(
+        ],
+      ),
+      body: RefreshIndicator(
+        onRefresh: controller.muatUlang,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: EdgeInsets.zero,
+          children: [
+            PageWidth(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const SizedBox(height: 16),
+                  _HomeHeader(
+                    now: now,
+                    firstName: firstName,
+                    onSearch: () => Navigator.of(context).push<void>(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const ModulSearchScreen(),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  _MotivationBanner(
+                    totalModul: controller.totalModul,
+                    totalDraft: controller.totalDraft,
+                    totalTerbit: controller.totalTerbit,
+                    totalFavorit: controller.totalFavorit,
+                  ),
                   if (controller.storageError != null) ...[
-                    _WarningBanner(message: controller.storageError!),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 12),
+                    _WarningBanner(
+                      message: controller.storageError!,
+                      onRetry: () => controller.muatUlang(),
+                    ),
                   ],
+                  const SizedBox(height: 16),
                   LayoutBuilder(
                     builder: (context, constraints) {
-                      final columns = constraints.maxWidth >= 700 ? 4 : 2;
+                      final columns = constraints.maxWidth >= 640 ? 4 : 2;
                       return GridView.builder(
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
                         itemCount: 4,
-                        gridDelegate:
-                            SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: columns,
-                              crossAxisSpacing: 10,
-                              mainAxisSpacing: 10,
-                              mainAxisExtent: 120,
-                            ),
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: columns,
+                          crossAxisSpacing: 8,
+                          mainAxisSpacing: 8,
+                          mainAxisExtent: 88,
+                        ),
                         itemBuilder: (context, index) {
                           final items = [
                             StatCard(
                               label: 'Total modul',
-                              value: '${controller.totalModul}',
-                              icon: Icons.auto_stories_rounded,
+                              value: controller.totalModul,
+                              icon: Icons.folder_outlined,
                               color: AppColors.primary,
                               onTap: () => onNavigateTab(1),
                             ),
                             StatCard(
                               label: 'Sudah terbit',
-                              value: '${controller.totalTerbit}',
-                              icon: Icons.verified_rounded,
+                              value: controller.totalTerbit,
+                              icon: Icons.check_circle_outline,
                               color: AppColors.success,
                               onTap: () => onNavigateTab(1),
                             ),
                             StatCard(
                               label: 'Masih draft',
-                              value: '${controller.totalDraft}',
-                              icon: Icons.edit_note_rounded,
+                              value: controller.totalDraft,
+                              icon: Icons.edit_note_outlined,
                               color: AppColors.accent,
                               onTap: () => onNavigateTab(1),
                             ),
                             StatCard(
                               label: 'Total jam pelajaran',
-                              value: '${controller.totalJp}',
-                              icon: Icons.timer_rounded,
+                              value: controller.totalJp,
+                              icon: Icons.schedule_outlined,
                               color: const Color(0xFF2563EB),
                               onTap: () => onNavigateTab(1),
                             ),
@@ -129,50 +201,41 @@ class HomeScreen extends StatelessWidget {
                       );
                     },
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 22),
                   const SectionHeader(
-                    title: 'Aksi cepat',
-                    subtitle: 'Mulai kelola perangkat ajar kamu',
+                    title: 'Menu cepat',
+                    subtitle: 'Akses fitur utama aplikasi',
                   ),
-                  const SizedBox(height: 12),
-                  Row(
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
                     children: [
-                      Expanded(
-                        child: _QuickAction(
-                          icon: Icons.note_add_rounded,
-                          label: 'Modul\nbaru',
-                          color: AppColors.primary,
-                          onTap: () => _openForm(context),
-                        ),
+                      OutlinedButton.icon(
+                        onPressed: () => _openForm(context),
+                        icon: const Icon(Icons.add, size: 18),
+                        label: const Text('Tambah Modul'),
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: _QuickAction(
-                          icon: Icons.search_rounded,
-                          label: 'Cari\nmodul',
-                          color: const Color(0xFF2563EB),
-                          onTap: () => Navigator.of(context).push<void>(
-                            MaterialPageRoute<void>(
-                              builder: (_) => const ModulSearchScreen(),
-                            ),
+                      OutlinedButton.icon(
+                        onPressed: () => Navigator.of(context).push<void>(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const ModulSearchScreen(),
                           ),
                         ),
+                        icon: const Icon(Icons.search, size: 18),
+                        label: const Text('Cari Modul'),
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: _QuickAction(
-                          icon: Icons.manage_accounts_rounded,
-                          label: 'Edit\nprofil',
-                          color: AppColors.accent,
-                          onTap: () => onNavigateTab(3),
-                        ),
+                      OutlinedButton.icon(
+                        onPressed: () => onNavigateTab(3),
+                        icon: const Icon(Icons.person_outline, size: 18),
+                        label: const Text('Edit Profil'),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 26),
+                  const SizedBox(height: 22),
                   SectionHeader(
                     title: 'Modul terbaru',
-                    subtitle: 'Lanjutkan modul yang terakhir kamu kerjakan',
+                    subtitle: 'Tiga modul yang terakhir diperbarui',
                     actionLabel: controller.totalModul > 0
                         ? 'Lihat semua'
                         : null,
@@ -180,24 +243,14 @@ class HomeScreen extends StatelessWidget {
                         ? () => onNavigateTab(1)
                         : null,
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
                   if (latest.isEmpty)
-                    Container(
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.surface,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: theme.colorScheme.outlineVariant.withValues(
-                            alpha: 0.55,
-                          ),
-                        ),
-                      ),
+                    Card(
                       child: EmptyState(
-                        icon: Icons.auto_stories_outlined,
+                        icon: Icons.folder_open_outlined,
                         title: 'Belum ada modul ajar',
-                        message:
-                            'Buat modul pertamamu dan susun perangkat ajar yang siap dipakai di kelas.',
-                        actionLabel: 'Buat Modul Pertama',
+                        message: 'Tambahkan modul pertama untuk mulai mengelola perangkat ajar.',
+                        actionLabel: 'Tambah Modul',
                         onAction: () => _openForm(context),
                         compact: true,
                       ),
@@ -206,7 +259,7 @@ class HomeScreen extends StatelessWidget {
                     ...latest.map(
                       (modul) => ModulCard(
                         modul: modul,
-                        margin: const EdgeInsets.only(bottom: 10),
+                        margin: const EdgeInsets.only(bottom: 8),
                         showMenu: false,
                         onTap: () => _openDetail(context, modul),
                       ),
@@ -218,23 +271,23 @@ class HomeScreen extends StatelessWidget {
                       subtitle:
                           '${controller.totalTerbit} terbit · ${controller.totalDraft} draft',
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 10),
                     _MapelSummaryCard(summaries: ringkasan),
                   ],
                   if (activities.isNotEmpty) ...[
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 22),
                     SectionHeader(
                       title: 'Aktivitas terakhir',
-                      subtitle: 'Jejak perubahan pada modul ajar',
+                      subtitle: 'Riwayat perubahan modul ajar',
                       actionLabel: 'Lihat semua',
                       onAction: () => onNavigateTab(2),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 10),
                     Card(
                       child: Padding(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 4,
+                          horizontal: 12,
+                          vertical: 2,
                         ),
                         child: Column(
                           children: [
@@ -255,7 +308,7 @@ class HomeScreen extends StatelessWidget {
                                 Divider(
                                   height: 1,
                                   color: theme.colorScheme.outlineVariant
-                                      .withValues(alpha: 0.5),
+                                      .withValues(alpha: 0.7),
                                 ),
                             ],
                           ],
@@ -263,20 +316,20 @@ class HomeScreen extends StatelessWidget {
                       ),
                     ),
                   ],
-                  const SizedBox(height: 28),
+                  const SizedBox(height: 24),
                   Center(
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          Icons.lock_outline_rounded,
+                          Icons.storage_outlined,
                           size: 13,
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
                         const SizedBox(width: 5),
                         Flexible(
                           child: Text(
-                            'Data tersimpan otomatis di perangkat ini',
+                            'Data tersimpan pada basis data PostgreSQL di server',
                             style: theme.textTheme.labelSmall?.copyWith(
                               color: theme.colorScheme.onSurfaceVariant,
                             ),
@@ -289,8 +342,8 @@ class HomeScreen extends StatelessWidget {
                 ],
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -298,301 +351,274 @@ class HomeScreen extends StatelessWidget {
 
 class _HomeHeader extends StatelessWidget {
   const _HomeHeader({
-    required this.controller,
     required this.now,
-    required this.onOpenProfile,
+    required this.firstName,
     required this.onSearch,
   });
 
-  final AppController controller;
   final DateTime now;
-  final VoidCallback onOpenProfile;
+  final String firstName;
   final VoidCallback onSearch;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final nameParts = controller.profile.nama.trim().split(RegExp(r'\s+'));
-    final firstName = nameParts.isEmpty ? 'Guru' : nameParts.first;
 
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            AppColors.primaryDeep,
-            AppColors.primary,
-            Color(0xFF0D9488),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '${sapaanWaktu(now)}, $firstName',
+          style: theme.textTheme.headlineSmall?.copyWith(
+            fontSize: 22,
+            fontWeight: FontWeight.w700,
+          ),
         ),
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
-      ),
-      child: Stack(
-        children: [
-          Positioned(
-            top: -70,
-            right: -50,
-            child: _Orb(size: 190, opacity: 0.09),
+        const SizedBox(height: 2),
+        Text(
+          formatHariTanggal(now),
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
           ),
-          Positioned(
-            bottom: -60,
-            left: -40,
-            child: _Orb(size: 170, opacity: 0.06),
-          ),
-          SafeArea(
-            bottom: false,
-            child: PageWidth(
-              padding: const EdgeInsets.fromLTRB(20, 14, 20, 22),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 38,
-                        height: 38,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.16),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.18),
-                          ),
-                        ),
-                        child: const Icon(
-                          Icons.auto_stories_rounded,
-                          color: Colors.white,
-                          size: 21,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'ModulAjar',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 17,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: -0.3,
-                            ),
-                          ),
-                          Text(
-                            'Kurikulum Merdeka',
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.7),
-                              fontSize: 10,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const Spacer(),
-                      IconButton(
-                        tooltip: isDark
-                            ? 'Gunakan tema terang'
-                            : 'Gunakan tema gelap',
-                        onPressed: () => controller.ubahTema(
-                          isDark ? ThemeMode.light : ThemeMode.dark,
-                        ),
-                        style: IconButton.styleFrom(
-                          backgroundColor: Colors.white.withValues(
-                            alpha: 0.12,
-                          ),
-                          foregroundColor: Colors.white,
-                        ),
-                        icon: Icon(
-                          isDark
-                              ? Icons.light_mode_rounded
-                              : Icons.dark_mode_rounded,
-                          size: 20,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      InkWell(
-                        onTap: onOpenProfile,
-                        customBorder: const CircleBorder(),
-                        child: Container(
-                          width: 40,
-                          height: 40,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.35),
-                              width: 2,
-                            ),
-                          ),
-                          child: Text(
-                            controller.profile.inisial,
-                            style: const TextStyle(
-                              color: AppColors.primary,
-                              fontWeight: FontWeight.w800,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton(
+            onPressed: onSearch,
+            style: OutlinedButton.styleFrom(
+              alignment: Alignment.centerLeft,
+              foregroundColor: theme.colorScheme.onSurfaceVariant,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            ),
+            child: const Row(
+              children: [
+                Icon(Icons.search, size: 18),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Cari modul, mata pelajaran, atau materi',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 20),
-                  Text(
-                    formatHariTanggal(now),
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.68),
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${sapaanWaktu(now)}, $firstName!',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 24,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.8,
-                      height: 1.2,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Siap menyusun pembelajaran yang bermakna hari ini?',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.78),
-                      fontSize: 12,
-                      height: 1.45,
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  Material(
-                    color: Colors.white.withValues(alpha: 0.14),
-                    borderRadius: BorderRadius.circular(15),
-                    child: InkWell(
-                      onTap: onSearch,
-                      borderRadius: BorderRadius.circular(15),
-                      child: Container(
-                        height: 47,
-                        padding: const EdgeInsets.symmetric(horizontal: 14),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(15),
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.18),
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.search_rounded,
-                              color: Colors.white.withValues(alpha: 0.8),
-                              size: 20,
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                'Cari modul, mapel, atau materi...',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.72),
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 7,
-                                vertical: 3,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.14),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Text(
-                                '${controller.totalModul} modul',
-                                style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.85),
-                                  fontSize: 9.5,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
-        ],
+        ),
+      ],
+    );
+  }
+}
+
+class _MotivationBanner extends StatefulWidget {
+  const _MotivationBanner({
+    required this.totalModul,
+    required this.totalDraft,
+    required this.totalTerbit,
+    required this.totalFavorit,
+  });
+
+  final int totalModul;
+  final int totalDraft;
+  final int totalTerbit;
+  final int totalFavorit;
+
+  @override
+  State<_MotivationBanner> createState() => _MotivationBannerState();
+}
+
+class _MotivationBannerState extends State<_MotivationBanner> {
+  int _index = 0;
+
+  List<_MotivationIdea> _buildIdeas() {
+    final ideas = <_MotivationIdea>[
+      const _MotivationIdea(
+        icon: Icons.auto_awesome_rounded,
+        title: 'Mulai dari satu modul',
+        message:
+            'Modul yang rapi tidak harus panjang. Tulis tujuan, langkah, dan '
+            'asesmen singkat, lalu simpan sebagai draft.',
+      ),
+      const _MotivationIdea(
+        icon: Icons.playlist_add_check_rounded,
+        title: 'Rapikan langkah pembelajaran',
+        message:
+            'Pecah kegiatan menjadi pembuka, inti, dan penutup agar guru lain '
+            'mudah memakai modulmu.',
+      ),
+      const _MotivationIdea(
+        icon: Icons.auto_stories_rounded,
+        title: 'Beri contoh nyata',
+        message:
+            'Satu contoh kontekstual sering lebih membantu daripada banyak '
+            'teori. Tambahkan studi kasus singkat di modulmu.',
+      ),
+      const _MotivationIdea(
+        icon: Icons.insights_rounded,
+        title: 'Tinjau rekap berkala',
+        message:
+            'Buka rekap server untuk melihat sebaran modul dan jam pelajaran '
+            'per mata pelajaran.',
+      ),
+    ];
+
+    if (widget.totalModul == 0) {
+      ideas.insert(
+        0,
+        const _MotivationIdea(
+          icon: Icons.rocket_launch_rounded,
+          title: 'Petualangan dimulai!',
+          message:
+              'Belum ada modul. Buat modul pertamamu, atau muat data contoh '
+              'dari halaman profil untuk melihat isi aplikasi.',
+        ),
+      );
+    } else if (widget.totalDraft > 0) {
+      ideas.insert(
+        0,
+        _MotivationIdea(
+          icon: Icons.edit_note_rounded,
+          title: '${widget.totalDraft} draft menunggu',
+          message:
+              'Draft belum terlihat asyik? Lengkapi satu bagian kecil hari ini, '
+              'lalu terbitkan saat sudah siap.',
+        ),
+      );
+    } else {
+      ideas.insert(
+        0,
+        _MotivationIdea(
+          icon: Icons.verified_rounded,
+          title: 'Semua modul sudah terbit',
+          message:
+              '${widget.totalTerbit} modul sudah terbit dan '
+              '${widget.totalFavorit} ditandai favorit. Kerja bagus!',
+        ),
+      );
+    }
+
+    return ideas;
+  }
+
+  void _nextIdea(int total) {
+    HapticFeedback.selectionClick();
+    setState(() => _index = (_index + 1) % total);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final ideas = _buildIdeas();
+    final idea = ideas[_index % ideas.length];
+
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(10),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => _nextIdea(ideas.length),
+        child: Ink(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                theme.colorScheme.primary.withValues(alpha: 0.12),
+                theme.colorScheme.primary.withValues(alpha: 0.04),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: theme.colorScheme.primary.withValues(alpha: 0.16),
+            ),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(13, 12, 8, 12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primary.withValues(alpha: 0.13),
+                    borderRadius: BorderRadius.circular(9),
+                  ),
+                  child: Icon(
+                    idea.icon,
+                    size: 18,
+                    color: theme.colorScheme.primary,
+                  ),
+                ),
+                const SizedBox(width: 11),
+                Expanded(
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 260),
+                    switchInCurve: Curves.easeOutCubic,
+                    switchOutCurve: Curves.easeIn,
+                    transitionBuilder: (child, animation) {
+                      final slide = Tween<Offset>(
+                        begin: const Offset(0.06, 0),
+                        end: Offset.zero,
+                      ).animate(animation);
+                      return FadeTransition(
+                        opacity: animation,
+                        child: SlideTransition(position: slide, child: child),
+                      );
+                    },
+                    child: Column(
+                      key: ValueKey(idea.title),
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          idea.title,
+                          style: theme.textTheme.labelLarge?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: theme.colorScheme.primary,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          idea.message,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                            height: 1.45,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Ganti ide',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () => _nextIdea(ideas.length),
+                  icon: Icon(
+                    Icons.autorenew_rounded,
+                    size: 19,
+                    color: theme.colorScheme.primary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
 }
 
-class _QuickAction extends StatelessWidget {
-  const _QuickAction({
+class _MotivationIdea {
+  const _MotivationIdea({
     required this.icon,
-    required this.label,
-    required this.color,
-    required this.onTap,
+    required this.title,
+    required this.message,
   });
 
   final IconData icon;
-  final String label;
-  final Color color;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Material(
-      color: theme.colorScheme.surface,
-      borderRadius: BorderRadius.circular(18),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 13),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(
-              color: theme.colorScheme.outlineVariant.withValues(alpha: 0.55),
-            ),
-          ),
-          child: Column(
-            children: [
-              Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(icon, color: color, size: 20),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                label,
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: theme.colorScheme.onSurface,
-                  fontWeight: FontWeight.w700,
-                  height: 1.25,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+  final String title;
+  final String message;
 }
 
 class _MapelSummaryCard extends StatelessWidget {
@@ -605,18 +631,18 @@ class _MapelSummaryCard extends StatelessWidget {
     final theme = Theme.of(context);
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(14),
         child: Column(
           children: [
             for (var i = 0; i < summaries.length; i++) ...[
               _MapelSummaryRow(summary: summaries[i]),
               if (i < summaries.length - 1)
                 Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 11),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
                   child: Divider(
                     height: 1,
                     color: theme.colorScheme.outlineVariant.withValues(
-                      alpha: 0.45,
+                      alpha: 0.7,
                     ),
                   ),
                 ),
@@ -641,8 +667,8 @@ class _MapelSummaryRow extends StatelessWidget {
       children: [
         Row(
           children: [
-            SubjectAvatar(mapel: summary.mapel, size: 36),
-            const SizedBox(width: 11),
+            SubjectAvatar(mapel: summary.mapel, size: 32),
+            const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -652,7 +678,7 @@ class _MapelSummaryRow extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.labelLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                   const SizedBox(height: 1),
@@ -671,18 +697,25 @@ class _MapelSummaryRow extends StatelessWidget {
               '${(summary.progress * 100).round()}%',
               style: theme.textTheme.labelMedium?.copyWith(
                 color: theme.colorScheme.primary,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ],
         ),
-        const SizedBox(height: 8),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(10),
-          child: LinearProgressIndicator(
-            value: summary.progress,
-            minHeight: 6,
-            backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.1),
+        const SizedBox(height: 7),
+        TweenAnimationBuilder<double>(
+          tween: Tween(begin: 0.0, end: summary.progress),
+          duration: const Duration(milliseconds: 750),
+          curve: Curves.easeOutCubic,
+          builder: (context, value, _) => ClipRRect(
+            borderRadius: BorderRadius.circular(2),
+            child: LinearProgressIndicator(
+              value: value,
+              minHeight: 5,
+              backgroundColor: theme.colorScheme.primary.withValues(
+                alpha: 0.1,
+              ),
+            ),
           ),
         ),
       ],
@@ -691,31 +724,28 @@ class _MapelSummaryRow extends StatelessWidget {
 }
 
 class _WarningBanner extends StatelessWidget {
-  const _WarningBanner({required this.message});
+  const _WarningBanner({required this.message, required this.onRetry});
 
   final String message;
+  final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
       decoration: BoxDecoration(
-        color: theme.colorScheme.errorContainer.withValues(alpha: 0.55),
-        borderRadius: BorderRadius.circular(14),
+        color: theme.colorScheme.errorContainer.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(6),
         border: Border.all(
-          color: theme.colorScheme.error.withValues(alpha: 0.2),
+          color: theme.colorScheme.error.withValues(alpha: 0.25),
         ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            Icons.warning_amber_rounded,
-            size: 20,
-            color: theme.colorScheme.error,
-          ),
-          const SizedBox(width: 10),
+          Icon(Icons.error_outline, size: 18, color: theme.colorScheme.error),
+          const SizedBox(width: 8),
           Expanded(
             child: Text(
               message,
@@ -724,28 +754,8 @@ class _WarningBanner extends StatelessWidget {
               ),
             ),
           ),
+          TextButton(onPressed: onRetry, child: const Text('Coba lagi')),
         ],
-      ),
-    );
-  }
-}
-
-class _Orb extends StatelessWidget {
-  const _Orb({required this.size, required this.opacity});
-
-  final double size;
-  final double opacity;
-
-  @override
-  Widget build(BuildContext context) {
-    return IgnorePointer(
-      child: Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: Colors.white.withValues(alpha: opacity),
-        ),
       ),
     );
   }

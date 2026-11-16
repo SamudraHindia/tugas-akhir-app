@@ -103,8 +103,22 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
     );
 
     try {
-      await AppScope.read(context).perbaruiProfil(profile);
+      final controller = AppScope.read(context);
+      final berhasil = await controller.perbaruiProfil(profile);
       if (!mounted) return;
+      if (!berhasil) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(
+              content: Text(
+                controller.storageError ??
+                    'Profil gagal disimpan. Silakan coba lagi.',
+              ),
+            ),
+          );
+        return;
+      }
       Navigator.of(context).pop(profile);
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -151,32 +165,19 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                             builder: (context, value, _) {
                               final initial = inisialNama(value.text);
                               return Container(
-                                width: 74,
-                                height: 74,
+                                width: 68,
+                                height: 68,
                                 alignment: Alignment.center,
                                 decoration: BoxDecoration(
-                                  gradient: const LinearGradient(
-                                    colors: [
-                                      Color(0xFF115E59),
-                                      Color(0xFF0D9488),
-                                    ],
-                                  ),
+                                  color: theme.colorScheme.primary,
                                   shape: BoxShape.circle,
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: theme.colorScheme.primary
-                                          .withValues(alpha: 0.2),
-                                      blurRadius: 16,
-                                      offset: const Offset(0, 6),
-                                    ),
-                                  ],
                                 ),
                                 child: Text(
                                   initial,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 24,
-                                    fontWeight: FontWeight.w800,
+                                  style: TextStyle(
+                                    color: theme.colorScheme.onPrimary,
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w600,
                                   ),
                                 ),
                               );
@@ -257,7 +258,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                             controller: _emailController,
                             validator: (value) {
                               final text = value?.trim() ?? '';
-                              if (text.isEmpty) return null;
+                              if (text.isEmpty) return 'Email wajib diisi.';
                               final pattern = RegExp(
                                 r'^[\w.+-]+@[\w-]+\.[\w.-]+$',
                               );
@@ -270,8 +271,10 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                             textInputAction: TextInputAction.done,
                             onFieldSubmitted: (_) => _save(),
                             decoration: const InputDecoration(
-                              labelText: 'Email (opsional)',
+                              labelText: 'Email',
                               prefixIcon: Icon(Icons.mail_outline_rounded),
+                              helperText:
+                                  'Dipakai untuk masuk ke aplikasi.',
                             ),
                           ),
                         ],
@@ -290,7 +293,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
-                          'Data profil disimpan secara lokal di perangkat ini dan tidak dikirim ke mana pun.',
+                          'Data profil disimpan pada basis data PostgreSQL di server.',
                           style: theme.textTheme.labelSmall?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant,
                             height: 1.5,
@@ -335,9 +338,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                               ),
                             )
                           : const Icon(Icons.save_rounded, size: 19),
-                      label: Text(
-                        _saving ? 'Menyimpan...' : 'Simpan Profil',
-                      ),
+                      label: Text(_saving ? 'Menyimpan...' : 'Simpan Profil'),
                     ),
                   ),
                 ),

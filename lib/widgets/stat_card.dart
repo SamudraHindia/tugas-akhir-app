@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'press_scale.dart';
+
 class StatCard extends StatelessWidget {
   const StatCard({
     super.key,
@@ -11,7 +13,7 @@ class StatCard extends StatelessWidget {
   });
 
   final String label;
-  final String value;
+  final int value;
   final IconData icon;
   final Color color;
   final VoidCallback? onTap;
@@ -19,70 +21,63 @@ class StatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
 
-    return Material(
-      color: Colors.transparent,
-      child: Ink(
-        decoration: BoxDecoration(
-          color: isDark
-              ? theme.colorScheme.surface
-              : Colors.white.withValues(alpha: 0.94),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.55),
+    return PressScale(
+      enabled: onTap != null,
+      child: Material(
+        color: theme.colorScheme.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+          side: BorderSide(
+            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.85),
           ),
         ),
+        clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(18),
           child: Padding(
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Row(
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: color.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(10),
+                    TweenAnimationBuilder<double>(
+                      tween: const Tween<double>(begin: 0.0, end: 1.0),
+                      duration: const Duration(milliseconds: 450),
+                      curve: Curves.easeOutBack,
+                      builder: (context, t, child) => Transform.scale(
+                        scale: 0.7 + (0.3 * t),
+                        child: child,
                       ),
                       child: Icon(icon, size: 16, color: color),
                     ),
-                    const Spacer(),
-                    if (onTap != null)
-                      Icon(
-                        Icons.north_east_rounded,
-                        size: 14,
-                        color: theme.colorScheme.onSurfaceVariant.withValues(
-                          alpha: 0.6,
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
+                    ),
                   ],
                 ),
-                const Spacer(),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    value,
+                TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0.0, end: value.toDouble()),
+                  duration: const Duration(milliseconds: 700),
+                  curve: Curves.easeOutCubic,
+                  builder: (context, animated, _) => Text(
+                    '${animated.round()}',
                     style: theme.textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w700,
                       color: theme.colorScheme.onSurface,
+                      height: 1,
                     ),
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],

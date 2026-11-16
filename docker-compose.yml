@@ -1,0 +1,101 @@
+# Menjalankan seluruh layanan ModulAjar:
+#   docker compose up --build
+#
+# Port yang dipakai:
+#   8080 -> API PHP (dipakai aplikasi Flutter)
+#   8000 -> layanan laporan Python (rekap dan ekspor CSV)
+#   5433 -> PostgreSQL (dari komputer host, opsional untuk inspeksi)
+#   8081 -> Adminer (antarmuka pemeriksaan database)
+#
+# Kredensial dapat dioverride lewat file .env (lihat .env.example).
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: modulajar-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: modulajar
+      POSTGRES_USER: modulajar
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-modulajar123}
+    ports:
+      - "5433:5432"
+    volumes:
+      - modulajar_pgdata:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U modulajar -d modulajar"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  # Menjalankan migrasi idempotent setiap kali stack dinyalakan. Aman untuk
+  # database baru maupun volume lama.
+  migrate:
+    image: postgres:16-alpine
+    container_name: modulajar-migrate
+    environment:
+      PGPASSWORD: ${DB_PASSWORD:-modulajar123}
+    volumes:
+      - ./database/migrate.sql:/migrations/migrate.sql:ro
+    command: >
+      psql -h db -U modulajar -d modulajar
+      -v ON_ERROR_STOP=1 -f /migrations/migrate.sql
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    build: ./backend/php
+    container_name: modulajar-api
+    restart: unless-stopped
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: modulajar
+      DB_USER: modulajar
+      DB_PASSWORD: ${DB_PASSWORD:-modulajar123}
+      CORS_ALLOW_ORIGIN: ${CORS_ALLOW_ORIGIN:-*}
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./backend/php:/app
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+  report:
+    build: ./backend/python
+    container_name: modulajar-report
+    restart: unless-stopped
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: modulajar
+      DB_USER: modulajar
+      DB_PASSWORD: ${DB_PASSWORD:-modulajar123}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/python:/app
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+  adminer:
+    image: adminer:latest
+    container_name: modulajar-adminer
+    restart: unless-stopped
+    ports:
+      - "8081:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  modulajar_pgdata:

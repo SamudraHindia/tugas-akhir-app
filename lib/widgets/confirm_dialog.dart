@@ -10,7 +10,9 @@ Future<bool> showConfirmDialog(
   IconData icon = Icons.delete_outline_rounded,
 }) async {
   final theme = Theme.of(context);
-  final color = destructive ? theme.colorScheme.error : theme.colorScheme.primary;
+  final color = destructive
+      ? theme.colorScheme.error
+      : theme.colorScheme.primary;
 
   final result = await showDialog<bool>(
     context: context,
@@ -20,8 +22,8 @@ Future<bool> showConfirmDialog(
           width: 52,
           height: 52,
           decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.12),
-            shape: BoxShape.circle,
+            color: color.withValues(alpha: 0.10),
+            borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(icon, color: color),
         ),

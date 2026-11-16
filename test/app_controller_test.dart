@@ -54,8 +54,17 @@ void main() {
       expect(storage.values.containsKey(AppController.modulesKey), isTrue);
     });
 
+    test('mode lokal otomatis memakai sesi demo', () async {
+      expect(controller.isAuthenticated, isTrue);
+      expect(controller.canLogout, isFalse);
+      expect(controller.session?.user.nama, 'Rizal Pratama');
+
+      await controller.logout();
+      expect(controller.isAuthenticated, isFalse);
+    });
+
     test('CRUD modul tersimpan dan dapat dipulihkan', () async {
-      final created = await controller.tambahModul(_modulBaru());
+      final created = (await controller.tambahModul(_modulBaru()))!;
       expect(controller.totalModul, 9);
       expect(controller.cariModul(created.id), isNotNull);
       expect(controller.activities.first.type, ActivityType.dibuat);
@@ -92,13 +101,17 @@ void main() {
       await controller.toggleFavorit(modul.id);
       expect(controller.cariModul(modul.id)!.favorit, isTrue);
 
+      final favoritBerhasil = await controller.toggleFavorit(modul.id);
+      expect(favoritBerhasil, isTrue);
+      expect(controller.cariModul(modul.id)!.favorit, isFalse);
+
       final updated = await controller.ubahStatus(modul.id);
       expect(updated, isNotNull);
       expect(updated!.status, isNot(statusAwal));
-      expect(controller.activities.first.type, anyOf(
-        ActivityType.diterbitkan,
-        ActivityType.ditarikDraft,
-      ));
+      expect(
+        controller.activities.first.type,
+        anyOf(ActivityType.diterbitkan, ActivityType.ditarikDraft),
+      );
     });
 
     test('filter, pencarian, dan pengurutan bekerja', () {
@@ -121,9 +134,8 @@ void main() {
 
       final berdasarkanJudul = controller.filterModul(sort: ModulSort.judul);
       final judul = berdasarkanJudul.map((modul) => modul.judul).toList();
-      final sorted = [...judul]..sort(
-        (a, b) => a.toLowerCase().compareTo(b.toLowerCase()),
-      );
+      final sorted = [...judul]
+        ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
       expect(judul, sorted);
     });
 
@@ -137,7 +149,7 @@ void main() {
           email: 'guru@sekolah.id',
         ),
       );
-      final created = await controller.tambahModul(_modulBaru());
+      final created = (await controller.tambahModul(_modulBaru()))!;
 
       final restored = AppController(
         storage,

@@ -8,6 +8,8 @@ import '../../data/models/modul_ajar.dart';
 import '../../state/app_controller.dart';
 import '../../widgets/confirm_dialog.dart';
 import '../../widgets/page_width.dart';
+import '../../widgets/status_badge.dart';
+import '../../widgets/subject_avatar.dart';
 import 'modul_form_screen.dart';
 
 enum _DetailAction { edit, duplikat, hapus }
@@ -23,14 +25,17 @@ class ModulDetailScreen extends StatelessWidget {
     ModulAjar modul,
   ) async {
     final wasFavorite = modul.favorit;
-    await controller.toggleFavorit(modul.id);
+    final berhasil = await controller.toggleFavorit(modul.id);
     if (!context.mounted) return;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
           content: Text(
-            wasFavorite
+            !berhasil
+                ? (controller.storageError ??
+                      'Status favorit gagal disimpan ke server.')
+                : wasFavorite
                 ? 'Modul dihapus dari favorit.'
                 : 'Modul ditambahkan ke favorit.',
           ),
@@ -45,7 +50,20 @@ class ModulDetailScreen extends StatelessWidget {
   ) async {
     final wasDraft = modul.isDraft;
     final updated = await controller.ubahStatus(modul.id);
-    if (!context.mounted || updated == null) return;
+    if (!context.mounted) return;
+    if (updated == null) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+              controller.storageError ??
+                  'Status modul gagal disimpan ke server.',
+            ),
+          ),
+        );
+      return;
+    }
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
@@ -59,10 +77,7 @@ class ModulDetailScreen extends StatelessWidget {
       );
   }
 
-  Future<void> _edit(
-    BuildContext context,
-    ModulAjar modul,
-  ) async {
+  Future<void> _edit(BuildContext context, ModulAjar modul) async {
     final saved = await Navigator.of(context).push<ModulAjar>(
       MaterialPageRoute<ModulAjar>(
         builder: (_) => ModulFormScreen(modul: modul),
@@ -172,7 +187,7 @@ class ModulDetailScreen extends StatelessWidget {
               Text('Modul tidak ditemukan', style: theme.textTheme.titleMedium),
               const SizedBox(height: 6),
               Text(
-                'Modul mungkin sudah dihapus dari perangkat ini.',
+                'Modul mungkin sudah dihapus dari server.',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
@@ -196,9 +211,7 @@ class ModulDetailScreen extends StatelessWidget {
         actions: [
           IconButton(
             key: const ValueKey('tombol-favorit'),
-            tooltip: modul.favorit
-                ? 'Hapus dari favorit'
-                : 'Tambah ke favorit',
+            tooltip: modul.favorit ? 'Hapus dari favorit' : 'Tambah ke favorit',
             onPressed: () => _toggleFavorit(context, controller, modul),
             icon: Icon(
               modul.favorit ? Icons.star_rounded : Icons.star_outline_rounded,
@@ -249,7 +262,7 @@ class ModulDetailScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _DetailHero(modul: modul, visual: visual),
+              _DetailHero(modul: modul),
               const SizedBox(height: 14),
               _MetaCard(modul: modul),
               const SizedBox(height: 14),
@@ -312,9 +325,8 @@ class ModulDetailScreen extends StatelessWidget {
                                   Expanded(
                                     child: Text(
                                       modul.tujuanPembelajaran[i],
-                                      style: theme.textTheme.bodyMedium?.copyWith(
-                                        height: 1.55,
-                                      ),
+                                      style: theme.textTheme.bodyMedium
+                                          ?.copyWith(height: 1.55),
                                     ),
                                   ),
                                 ],
@@ -340,8 +352,8 @@ class ModulDetailScreen extends StatelessWidget {
                               vertical: 7,
                             ),
                             decoration: BoxDecoration(
-                              color: visual.color.withValues(alpha: 0.09),
-                              borderRadius: BorderRadius.circular(10),
+                              color: visual.color.withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(4),
                               border: Border.all(
                                 color: visual.color.withValues(alpha: 0.18),
                               ),
@@ -458,10 +470,9 @@ class ModulDetailScreen extends StatelessWidget {
 }
 
 class _DetailHero extends StatelessWidget {
-  const _DetailHero({required this.modul, required this.visual});
+  const _DetailHero({required this.modul});
 
   final ModulAjar modul;
-  final SubjectVisual visual;
 
   @override
   Widget build(BuildContext context) {
@@ -469,134 +480,82 @@ class _DetailHero extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [
-            AppColors.primaryDeep,
-            AppColors.primary,
-            Color(0xFF0D9488),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.85),
         ),
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primary.withValues(alpha: 0.22),
-            blurRadius: 22,
-            offset: const Offset(0, 10),
-          ),
-        ],
       ),
-      child: Stack(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Positioned(
-            right: -40,
-            top: -50,
-            child: Container(
-              width: 160,
-              height: 160,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white.withValues(alpha: 0.07),
-              ),
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          Row(
             children: [
-              Row(
-                children: [
-                  Container(
-                    width: 46,
-                    height: 46,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.16),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.2),
+              SubjectAvatar(mapel: modul.mataPelajaran, size: 42),
+              const SizedBox(width: 11),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      modul.mataPelajaran,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: theme.colorScheme.primary,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                    child: Icon(visual.icon, color: Colors.white, size: 24),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          modul.mataPelajaran.toUpperCase(),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: Colors.white.withValues(alpha: 0.75),
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0.8,
-                          ),
-                        ),
-                        const SizedBox(height: 5),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 6,
-                          crossAxisAlignment: WrapCrossAlignment.center,
-                          children: [
-                            _LightBadge(
-                              icon: modul.status == ModulStatus.terbit
-                                  ? Icons.verified_rounded
-                                  : Icons.edit_note_rounded,
-                              label: modul.status.label,
-                            ),
-                            if (modul.favorit)
-                              const _LightBadge(
-                                icon: Icons.star_rounded,
-                                label: 'Favorit',
-                              ),
-                          ],
-                        ),
-                      ],
+                    const SizedBox(height: 2),
+                    Text(
+                      'Kelas ${modul.kelas} · Semester ${modul.semester}',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 18),
-              Text(
-                modul.judul,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.7,
-                  height: 1.25,
+                  ],
                 ),
               ),
-              const SizedBox(height: 14),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  _LightBadge(
-                    icon: Icons.school_rounded,
-                    label: 'Kelas ${modul.kelas} · Fase ${modul.fase}',
-                  ),
-                  _LightBadge(
-                    icon: Icons.calendar_month_rounded,
-                    label: 'Semester ${modul.semester}',
-                  ),
-                  _LightBadge(
-                    icon: Icons.timer_rounded,
-                    label: '${modul.alokasiJp} JP',
-                  ),
-                ],
-              ),
-              const SizedBox(height: 14),
-              Text(
-                'Diperbarui ${formatWaktuRelatif(modul.updatedAt)}',
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: Colors.white.withValues(alpha: 0.62),
-                ),
-              ),
+              StatusBadge(status: modul.status),
             ],
+          ),
+          const SizedBox(height: 14),
+          Text(
+            modul.judul,
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w700,
+              height: 1.3,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              _MetaBadge(
+                icon: Icons.school_outlined,
+                label: 'Kelas ${modul.kelas} · Fase ${modul.fase}',
+              ),
+              _MetaBadge(
+                icon: Icons.calendar_today_outlined,
+                label: 'Semester ${modul.semester}',
+              ),
+              _MetaBadge(
+                icon: Icons.schedule_outlined,
+                label: '${modul.alokasiJp} JP',
+              ),
+              if (modul.favorit)
+                const _MetaBadge(icon: Icons.star_border, label: 'Favorit'),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Diperbarui ${formatWaktuRelatif(modul.updatedAt)}',
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
           ),
         ],
       ),
@@ -604,32 +563,33 @@ class _DetailHero extends StatelessWidget {
   }
 }
 
-class _LightBadge extends StatelessWidget {
-  const _LightBadge({required this.icon, required this.label});
+class _MetaBadge extends StatelessWidget {
+  const _MetaBadge({required this.icon, required this.label});
 
   final IconData icon;
   final String label;
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.7),
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 12, color: Colors.white.withValues(alpha: 0.9)),
+          Icon(icon, size: 12, color: theme.colorScheme.onSurfaceVariant),
           const SizedBox(width: 4),
           Text(
             label,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.92),
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
         ],
@@ -744,8 +704,8 @@ class _MetaTile extends StatelessWidget {
           width: 30,
           height: 30,
           decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(9),
+            color: color.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(6),
           ),
           child: Icon(icon, size: 15, color: color),
         ),
@@ -807,19 +767,13 @@ class _DetailSection extends StatelessWidget {
                   width: 32,
                   height: 32,
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.primary.withValues(alpha: 0.09),
-                    borderRadius: BorderRadius.circular(9),
+                    color: theme.colorScheme.primary.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(6),
                   ),
-                  child: Icon(
-                    icon,
-                    size: 17,
-                    color: theme.colorScheme.primary,
-                  ),
+                  child: Icon(icon, size: 17, color: theme.colorScheme.primary),
                 ),
                 const SizedBox(width: 9),
-                Expanded(
-                  child: Text(title, style: theme.textTheme.titleSmall),
-                ),
+                Expanded(child: Text(title, style: theme.textTheme.titleSmall)),
                 if (trailing != null)
                   Text(
                     trailing!,

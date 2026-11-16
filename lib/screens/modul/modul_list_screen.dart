@@ -118,7 +118,7 @@ class _ModulListScreenState extends State<ModulListScreen> {
   void _handleAction(ModulAjar modul, ModulCardAction action) {
     switch (action) {
       case ModulCardAction.favorit:
-        AppScope.read(context).toggleFavorit(modul.id);
+        _toggleFavorit(modul);
       case ModulCardAction.edit:
         _openForm(modul: modul);
       case ModulCardAction.duplikat:
@@ -126,6 +126,27 @@ class _ModulListScreenState extends State<ModulListScreen> {
       case ModulCardAction.hapus:
         _deleteModul(modul);
     }
+  }
+
+  Future<void> _toggleFavorit(ModulAjar modul) async {
+    final controller = AppScope.read(context);
+    final wasFavorite = modul.favorit;
+    final berhasil = await controller.toggleFavorit(modul.id);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(
+            !berhasil
+                ? (controller.storageError ??
+                      'Status favorit gagal disimpan ke server.')
+                : wasFavorite
+                ? 'Modul dihapus dari favorit.'
+                : 'Modul ditambahkan ke favorit.',
+          ),
+        ),
+      );
   }
 
   Future<void> _openFilterSheet() async {
@@ -171,17 +192,13 @@ class _ModulListScreenState extends State<ModulListScreen> {
                       ),
                       IconButton(
                         tooltip: 'Tutup',
-                        onPressed: () =>
-                            Navigator.of(sheetContext).pop(),
+                        onPressed: () => Navigator.of(sheetContext).pop(),
                         icon: const Icon(Icons.close_rounded),
                       ),
                     ],
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    'Mata pelajaran',
-                    style: theme.textTheme.labelLarge,
-                  ),
+                  Text('Mata pelajaran', style: theme.textTheme.labelLarge),
                   const SizedBox(height: 8),
                   Wrap(
                     spacing: 8,
@@ -450,7 +467,8 @@ class _ModulListScreenState extends State<ModulListScreen> {
                             icon: _hasFilter
                                 ? Icons.filter_alt_off_rounded
                                 : Icons.auto_stories_outlined,
-                            title: _hasFilter || _searchController.text.isNotEmpty
+                            title:
+                                _hasFilter || _searchController.text.isNotEmpty
                                 ? 'Tidak ada modul yang cocok'
                                 : 'Belum ada modul ajar',
                             message:
@@ -498,7 +516,7 @@ class _ModulListScreenState extends State<ModulListScreen> {
                               alignment: Alignment.centerRight,
                               decoration: BoxDecoration(
                                 color: AppColors.danger,
-                                borderRadius: BorderRadius.circular(18),
+                                borderRadius: BorderRadius.circular(8),
                               ),
                               child: const Row(
                                 mainAxisSize: MainAxisSize.min,

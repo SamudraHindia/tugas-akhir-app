@@ -70,7 +70,7 @@ class ActivityTile extends StatelessWidget {
 
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(4),
       child: Padding(
         padding: EdgeInsets.symmetric(
           horizontal: dense ? 4 : 2,
@@ -82,8 +82,8 @@ class ActivityTile extends StatelessWidget {
               width: dense ? 34 : 38,
               height: dense ? 34 : 38,
               decoration: BoxDecoration(
-                color: visual.color.withValues(alpha: 0.12),
-                shape: BoxShape.circle,
+                color: visual.color.withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(6),
               ),
               child: Icon(
                 visual.icon,

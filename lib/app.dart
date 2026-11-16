@@ -2,16 +2,17 @@ import 'package:flutter/material.dart';
 
 import 'app_scope.dart';
 import 'core/app_theme.dart';
-import 'data/app_storage.dart';
+import 'data/app_repository.dart';
+import 'screens/auth/auth_screen.dart';
 import 'screens/root_shell.dart';
 import 'screens/splash_screen.dart';
 import 'state/app_controller.dart';
 
 class MyApp extends StatefulWidget {
-  const MyApp({super.key, this.storage, this.controller});
+  const MyApp({super.key, this.repository, this.controller});
 
-  /// Dapat diinjeksi pada pengujian agar tidak bergantung plugin platform.
-  final AppStorage? storage;
+  /// Dapat diinjeksi pada pengujian agar tidak bergantung server.
+  final AppRepository? repository;
   final AppController? controller;
 
   @override
@@ -26,9 +27,12 @@ class _MyAppState extends State<MyApp> {
   void initState() {
     super.initState();
     _ownsController = widget.controller == null;
+    final repository = widget.repository;
     _controller =
         widget.controller ??
-        AppController(widget.storage ?? SharedPreferencesStorage());
+        (repository == null
+            ? AppController.production()
+            : AppController.withRepository(repository));
     if (!_controller.isReady) {
       _controller.initialize();
     }
@@ -48,6 +52,9 @@ class _MyAppState extends State<MyApp> {
         animation: _controller,
         builder: (context, _) {
           return MaterialApp(
+            key: ValueKey(
+              _controller.isAuthenticated ? 'modulajar-app' : 'modulajar-auth',
+            ),
             title: 'ModulAjar',
             debugShowCheckedModeBanner: false,
             theme: AppTheme.light(),
@@ -59,9 +66,11 @@ class _MyAppState extends State<MyApp> {
                 child: child ?? const SizedBox.shrink(),
               );
             },
-            home: _controller.isReady
+            home: !_controller.isReady
+                ? const SplashScreen()
+                : _controller.isAuthenticated
                 ? const RootShell()
-                : const SplashScreen(),
+                : const AuthScreen(),
           );
         },
       ),

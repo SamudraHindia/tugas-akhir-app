@@ -81,17 +81,20 @@ class _ModulSearchScreenState extends State<ModulSearchScreen> {
                       if (favorites.isNotEmpty) ...[
                         SectionHeader(
                           title: 'Favorit kamu',
-                          subtitle: '${favorites.length} modul ditandai favorit',
+                          subtitle:
+                              '${favorites.length} modul ditandai favorit',
                         ),
                         const SizedBox(height: 10),
-                        ...favorites.take(3).map(
-                          (modul) => ModulCard(
-                            modul: modul,
-                            margin: const EdgeInsets.only(bottom: 10),
-                            showMenu: false,
-                            onTap: () => _openDetail(modul),
-                          ),
-                        ),
+                        ...favorites
+                            .take(3)
+                            .map(
+                              (modul) => ModulCard(
+                                modul: modul,
+                                margin: const EdgeInsets.only(bottom: 10),
+                                showMenu: false,
+                                onTap: () => _openDetail(modul),
+                              ),
+                            ),
                         const SizedBox(height: 16),
                       ],
                       SectionHeader(
@@ -113,8 +116,7 @@ class _ModulSearchScreenState extends State<ModulSearchScreen> {
                       EmptyState(
                         icon: Icons.search_off_rounded,
                         title: 'Tidak ada hasil',
-                        message:
-                            'Coba kata kunci lain, misalnya nama mata pelajaran atau materi pokok.',
+                        message: 'Coba kata kunci lain, misalnya nama mata pelajaran atau materi pokok.',
                         actionLabel: query.isEmpty
                             ? null
                             : 'Bersihkan pencarian',

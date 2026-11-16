@@ -98,8 +98,7 @@ class _ModulFormScreenState extends State<ModulFormScreen> {
     final discard = await showConfirmDialog(
       context,
       title: 'Buang perubahan?',
-      message:
-          'Perubahan yang belum disimpan akan hilang. Yakin ingin keluar dari form ini?',
+      message: 'Perubahan yang belum disimpan akan hilang. Yakin ingin keluar dari form ini?',
       confirmLabel: 'Buang',
       cancelLabel: 'Lanjut mengedit',
       icon: Icons.undo_rounded,
@@ -172,11 +171,16 @@ class _ModulFormScreenState extends State<ModulFormScreen> {
           : await controller.perbaruiModul(modul);
       if (!mounted) return;
       if (saved == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Modul tidak ditemukan. Mungkin sudah dihapus.'),
-          ),
-        );
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(
+              content: Text(
+                controller.storageError ??
+                    'Modul gagal disimpan ke server. Silakan coba lagi.',
+              ),
+            ),
+          );
         setState(() => _saving = false);
         return;
       }
@@ -228,7 +232,8 @@ class _ModulFormScreenState extends State<ModulFormScreen> {
                   _FormSection(
                     icon: Icons.info_outline_rounded,
                     title: 'Informasi umum',
-                    subtitle: 'Identitas modul ajar yang akan dipakai di kelas.',
+                    subtitle:
+                        'Identitas modul ajar yang akan dipakai di kelas.',
                     child: Column(
                       children: [
                         TextFormField(
@@ -264,9 +269,8 @@ class _ModulFormScreenState extends State<ModulFormScreen> {
                                     ),
                                   )
                                   .toList(),
-                              onChanged: (value) => _update(
-                                () => _mataPelajaran = value,
-                              ),
+                              onChanged: (value) =>
+                                  _update(() => _mataPelajaran = value),
                             );
                             final kelas = _LabeledDropdown<String>(
                               label: 'Kelas',
@@ -284,9 +288,8 @@ class _ModulFormScreenState extends State<ModulFormScreen> {
                                     ),
                                   )
                                   .toList(),
-                              onChanged: (value) => _update(
-                                () => _kelas = value,
-                              ),
+                              onChanged: (value) =>
+                                  _update(() => _kelas = value),
                             );
                             if (!wide) {
                               return Column(
@@ -315,14 +318,14 @@ class _ModulFormScreenState extends State<ModulFormScreen> {
                           ),
                           decoration: BoxDecoration(
                             color: theme.colorScheme.primary.withValues(
-                              alpha: 0.07,
+                              alpha: 0.06,
                             ),
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(6),
                           ),
                           child: Row(
                             children: [
                               Icon(
-                                Icons.auto_awesome_rounded,
+                                Icons.info_outline,
                                 size: 16,
                                 color: theme.colorScheme.primary,
                               ),
@@ -356,9 +359,8 @@ class _ModulFormScreenState extends State<ModulFormScreen> {
                                     ),
                                   )
                                   .toList(),
-                              onChanged: (value) => _update(
-                                () => _semester = value,
-                              ),
+                              onChanged: (value) =>
+                                  _update(() => _semester = value),
                             );
                             final alokasi = _JpStepper(
                               value: _alokasiJp,
@@ -394,8 +396,7 @@ class _ModulFormScreenState extends State<ModulFormScreen> {
                           textCapitalization: TextCapitalization.sentences,
                           decoration: const InputDecoration(
                             labelText: 'Deskripsi singkat',
-                            hintText:
-                                'Ringkasan materi dan fokus pembelajaran modul.',
+                            hintText: 'Ringkasan materi dan fokus pembelajaran modul.',
                             alignLabelWithHint: true,
                           ),
                         ),
@@ -406,8 +407,7 @@ class _ModulFormScreenState extends State<ModulFormScreen> {
                   _FormSection(
                     icon: Icons.flag_outlined,
                     title: 'Tujuan & materi',
-                    subtitle:
-                        'Rumuskan capaian pembelajaran dan materi pokok.',
+                    subtitle: 'Rumuskan capaian pembelajaran dan materi pokok.',
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -416,8 +416,7 @@ class _ModulFormScreenState extends State<ModulFormScreen> {
                           values: _tujuan,
                           inputKey: const ValueKey('field-tujuan-input'),
                           hintText: 'Tambahkan tujuan pembelajaran...',
-                          emptyText:
-                              'Belum ada tujuan. Tambahkan minimal satu tujuan.',
+                          emptyText: 'Belum ada tujuan. Tambahkan minimal satu tujuan.',
                           errorText: _submitted && _tujuan.isEmpty
                               ? 'Tujuan pembelajaran wajib diisi.'
                               : null,
@@ -430,8 +429,7 @@ class _ModulFormScreenState extends State<ModulFormScreen> {
                           values: _materi,
                           inputKey: const ValueKey('field-materi-input'),
                           hintText: 'Tambahkan materi pokok...',
-                          emptyText:
-                              'Belum ada materi. Tambahkan minimal satu materi.',
+                          emptyText: 'Belum ada materi. Tambahkan minimal satu materi.',
                           errorText: _submitted && _materi.isEmpty
                               ? 'Materi pokok wajib diisi.'
                               : null,
@@ -475,8 +473,7 @@ class _ModulFormScreenState extends State<ModulFormScreen> {
                           textCapitalization: TextCapitalization.sentences,
                           decoration: const InputDecoration(
                             labelText: 'Asesmen',
-                            hintText:
-                                'Formatif, sumatif, proyek, atau rubrik penilaian...',
+                            hintText: 'Formatif, sumatif, proyek, atau rubrik penilaian...',
                             alignLabelWithHint: true,
                           ),
                         ),
@@ -487,8 +484,7 @@ class _ModulFormScreenState extends State<ModulFormScreen> {
                   _FormSection(
                     icon: Icons.public_rounded,
                     title: 'Publikasi',
-                    subtitle:
-                        'Modul draft dapat dilengkapi dulu sebelum diterbitkan.',
+                    subtitle: 'Modul draft dapat dilengkapi dulu sebelum diterbitkan.',
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -502,14 +498,16 @@ class _ModulFormScreenState extends State<ModulFormScreen> {
                             ButtonSegment(
                               value: ModulStatus.terbit,
                               label: Text('Terbit'),
-                              icon: Icon(Icons.check_circle_outline_rounded, size: 18),
+                              icon: Icon(
+                                Icons.check_circle_outline_rounded,
+                                size: 18,
+                              ),
                             ),
                           ],
                           selected: {_status},
                           showSelectedIcon: false,
-                          onSelectionChanged: (selection) => _update(
-                            () => _status = selection.first,
-                          ),
+                          onSelectionChanged: (selection) =>
+                              _update(() => _status = selection.first),
                         ),
                         const SizedBox(height: 12),
                         Row(
@@ -621,8 +619,8 @@ class _FormSection extends StatelessWidget {
                   width: 36,
                   height: 36,
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.primary.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(11),
+                    color: theme.colorScheme.primary.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(6),
                   ),
                   child: Icon(icon, size: 18, color: theme.colorScheme.primary),
                 ),

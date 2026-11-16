@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../app_scope.dart';
 import '../../core/app_theme.dart';
@@ -7,6 +8,7 @@ import '../../data/models/teacher_profile.dart';
 import '../../widgets/confirm_dialog.dart';
 import '../../widgets/page_width.dart';
 import '../../widgets/section_header.dart';
+import 'change_password_dialog.dart';
 import 'profile_edit_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
@@ -21,15 +23,16 @@ class ProfileScreen extends StatelessWidget {
     if (updated == null || !context.mounted) return;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(const SnackBar(content: Text('Profil berhasil diperbarui.')));
+      ..showSnackBar(
+        const SnackBar(content: Text('Profil berhasil diperbarui.')),
+      );
   }
 
   Future<void> _resetSample(BuildContext context) async {
     final confirmed = await showConfirmDialog(
       context,
       title: 'Muat ulang data contoh?',
-      message:
-          'Data modul dan aktivitas saat ini akan diganti dengan data contoh bawaan aplikasi.',
+      message: 'Data modul dan aktivitas pada server akan diganti dengan data contoh bawaan aplikasi.',
       confirmLabel: 'Muat ulang',
       cancelLabel: 'Batal',
       destructive: false,
@@ -37,12 +40,18 @@ class ProfileScreen extends StatelessWidget {
     );
     if (!confirmed || !context.mounted) return;
 
-    await AppScope.read(context).muatDataContoh();
+    final berhasil = await AppScope.read(context).muatDataContoh();
     if (!context.mounted) return;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
-        const SnackBar(content: Text('Data contoh berhasil dimuat ulang.')),
+        SnackBar(
+          content: Text(
+            berhasil
+                ? 'Data contoh berhasil dimuat ulang.'
+                : 'Data contoh gagal dimuat. Periksa pesan kesalahan.',
+          ),
+        ),
       );
   }
 
@@ -50,17 +59,110 @@ class ProfileScreen extends StatelessWidget {
     final confirmed = await showConfirmDialog(
       context,
       title: 'Hapus semua modul?',
-      message:
-          'Seluruh modul ajar dan riwayat aktivitas akan dihapus dari perangkat. Tindakan ini tidak dapat dibatalkan.',
+      message: 'Seluruh modul ajar dan riwayat aktivitas akan dihapus dari basis data server. Tindakan ini tidak dapat dibatalkan.',
       confirmLabel: 'Hapus semua',
     );
     if (!confirmed || !context.mounted) return;
 
-    await AppScope.read(context).hapusSemuaModul();
+    final berhasil = await AppScope.read(context).hapusSemuaModul();
     if (!context.mounted) return;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(const SnackBar(content: Text('Semua modul telah dihapus.')));
+      ..showSnackBar(
+        SnackBar(
+          content: Text(
+            berhasil
+                ? 'Semua modul telah dihapus.'
+                : 'Penghapusan gagal. Periksa pesan kesalahan.',
+          ),
+        ),
+      );
+  }
+
+  Future<void> _logout(BuildContext context) async {
+    final confirmed = await showConfirmDialog(
+      context,
+      title: 'Keluar dari akun?',
+      message:
+          'Kamu perlu masuk kembali untuk mengakses modul ajar milikmu.',
+      confirmLabel: 'Keluar',
+      cancelLabel: 'Batal',
+      icon: Icons.logout_rounded,
+    );
+    if (!confirmed || !context.mounted) return;
+
+    await AppScope.read(context).logout();
+  }
+
+  Future<void> _changePassword(BuildContext context) async {
+    final berhasil = await showChangePasswordDialog(context);
+    if (!berhasil || !context.mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        const SnackBar(
+          content: Text('Kata sandi berhasil diubah. Sesi lain telah berakhir.'),
+        ),
+      );
+  }
+
+  Future<void> _exportCsv(BuildContext context) async {
+    final controller = AppScope.read(context);
+    final messenger = ScaffoldMessenger.of(context);
+    var dialogTerbuka = true;
+
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const AlertDialog(
+        content: Row(
+          children: [
+            SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            SizedBox(width: 16),
+            Expanded(child: Text('Menyiapkan ekspor CSV...')),
+          ],
+        ),
+      ),
+    );
+
+    try {
+      final csv = await controller.muatCsvModul();
+      if (!context.mounted) return;
+      Navigator.of(context, rootNavigator: true).pop();
+      dialogTerbuka = false;
+
+      await Clipboard.setData(ClipboardData(text: csv));
+      if (!context.mounted) return;
+
+      final baris = csv
+          .split(RegExp(r'\r?\n'))
+          .where((line) => line.trim().isNotEmpty)
+          .length;
+      final dataBaris = baris > 1 ? baris - 1 : 0;
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+              'CSV rekap modul disalin ke clipboard ($dataBaris baris data).',
+            ),
+          ),
+        );
+    } catch (error) {
+      if (!context.mounted) return;
+      if (dialogTerbuka) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(content: Text('Ekspor CSV gagal: $error')),
+        );
+    }
   }
 
   void _showAbout(BuildContext context) {
@@ -70,18 +172,16 @@ class ProfileScreen extends StatelessWidget {
       builder: (dialogContext) {
         return AlertDialog(
           icon: Container(
-            width: 58,
-            height: 58,
+            width: 52,
+            height: 52,
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [AppColors.primaryDeep, AppColors.teal],
-              ),
-              borderRadius: BorderRadius.circular(18),
+              color: AppColors.primary,
+              borderRadius: BorderRadius.circular(8),
             ),
             child: const Icon(
-              Icons.auto_stories_rounded,
+              Icons.menu_book_outlined,
               color: Colors.white,
-              size: 28,
+              size: 26,
             ),
           ),
           title: const Text(AppInfo.name),
@@ -128,6 +228,133 @@ class ProfileScreen extends StatelessWidget {
         );
       },
     );
+  }
+
+  Future<void> _showServerReport(BuildContext context) async {
+    final controller = AppScope.read(context);
+
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const AlertDialog(
+        content: Row(
+          children: [
+            SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            SizedBox(width: 16),
+            Expanded(child: Text('Memuat rekap dari layanan Python...')),
+          ],
+        ),
+      ),
+    );
+
+    try {
+      final summary = await controller.muatRingkasanServer();
+      if (!context.mounted) return;
+      Navigator.of(context, rootNavigator: true).pop();
+
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) {
+          final theme = Theme.of(dialogContext);
+          return AlertDialog(
+            title: const Text('Rekap Data Server'),
+            content: SizedBox(
+              width: 360,
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _ReportRow(
+                      label: 'Total modul',
+                      value: '${summary.totalModul}',
+                    ),
+                    _ReportRow(
+                      label: 'Sudah terbit',
+                      value: '${summary.totalTerbit}',
+                    ),
+                    _ReportRow(
+                      label: 'Masih draft',
+                      value: '${summary.totalDraft}',
+                    ),
+                    _ReportRow(label: 'Total JP', value: '${summary.totalJp}'),
+                    _ReportRow(
+                      label: 'Aktivitas tercatat',
+                      value: '${summary.totalAktivitas}',
+                    ),
+                    const Divider(height: 22),
+                    Text(
+                      'Per mata pelajaran',
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    if (summary.perMapel.isEmpty)
+                      Text(
+                        'Belum ada data modul.',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      )
+                    else
+                      ...summary.perMapel
+                          .take(6)
+                          .map(
+                            (item) => Padding(
+                              padding: const EdgeInsets.only(bottom: 5),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      item.mataPelajaran,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: theme.textTheme.bodySmall,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    '${item.total} modul · ${item.totalJp} JP',
+                                    style: theme.textTheme.labelSmall?.copyWith(
+                                      color: theme.colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                    const SizedBox(height: 10),
+                    Text(
+                      'Dihitung oleh layanan Python (FastAPI) dari database PostgreSQL.',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('Tutup'),
+              ),
+            ],
+          );
+        },
+      );
+    } catch (error) {
+      if (!context.mounted) return;
+      Navigator.of(context, rootNavigator: true).pop();
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text('Rekap gagal dimuat: $error')));
+    }
   }
 
   @override
@@ -221,8 +448,54 @@ class ProfileScreen extends StatelessWidget {
               ),
               const SizedBox(height: 22),
               const SectionHeader(
+                title: 'Laporan server',
+                subtitle:
+                    'Rekap dari layanan Python, dapat diekspor sebagai CSV.',
+              ),
+              const SizedBox(height: 10),
+              Card(
+                child: Column(
+                  children: [
+                    ListTile(
+                      leading: const _ActionIcon(
+                        icon: Icons.analytics_outlined,
+                        color: AppColors.primary,
+                      ),
+                      title: const Text('Muat rekap data'),
+                      subtitle: const Text(
+                        'Jumlah modul, status, JP, dan aktivitas per mata pelajaran.',
+                      ),
+                      trailing: const Icon(
+                        Icons.chevron_right_rounded,
+                        size: 20,
+                      ),
+                      onTap: () => _showServerReport(context),
+                    ),
+                    if (controller.canLogout) ...[
+                      const _InfoDivider(),
+                      ListTile(
+                        leading: const _ActionIcon(
+                          icon: Icons.table_view_outlined,
+                          color: AppColors.success,
+                        ),
+                        title: const Text('Ekspor CSV'),
+                        subtitle: const Text(
+                          'Salin rekap modul ke clipboard dalam format CSV.',
+                        ),
+                        trailing: const Icon(
+                          Icons.download_rounded,
+                          size: 20,
+                        ),
+                        onTap: () => _exportCsv(context),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 22),
+              const SectionHeader(
                 title: 'Data aplikasi',
-                subtitle: 'Kelola data yang tersimpan di perangkat ini.',
+                subtitle: 'Kelola data yang tersimpan pada basis data server.',
               ),
               const SizedBox(height: 10),
               Card(
@@ -235,7 +508,7 @@ class ProfileScreen extends StatelessWidget {
                       ),
                       title: const Text('Muat ulang data contoh'),
                       subtitle: const Text(
-                        'Ganti data saat ini dengan modul contoh.',
+                        'Ganti data server dengan modul contoh.',
                       ),
                       trailing: const Icon(
                         Icons.chevron_right_rounded,
@@ -254,7 +527,7 @@ class ProfileScreen extends StatelessWidget {
                         style: TextStyle(color: theme.colorScheme.error),
                       ),
                       subtitle: const Text(
-                        'Menghapus seluruh modul dan riwayat aktivitas.',
+                        'Menghapus seluruh modul dan riwayat dari server.',
                       ),
                       trailing: const Icon(
                         Icons.chevron_right_rounded,
@@ -269,7 +542,9 @@ class ProfileScreen extends StatelessWidget {
                         color: Color(0xFF2563EB),
                       ),
                       title: const Text('Tentang aplikasi'),
-                      subtitle: const Text('Informasi versi dan tujuan aplikasi.'),
+                      subtitle: const Text(
+                        'Informasi versi dan tujuan aplikasi.',
+                      ),
                       trailing: const Icon(
                         Icons.chevron_right_rounded,
                         size: 20,
@@ -279,6 +554,56 @@ class ProfileScreen extends StatelessWidget {
                   ],
                 ),
               ),
+              if (controller.canLogout) ...[
+                const SizedBox(height: 22),
+                const SectionHeader(
+                  title: 'Akun',
+                  subtitle: 'Kelola kata sandi dan sesi login pada perangkat ini.',
+                ),
+                const SizedBox(height: 10),
+                Card(
+                  child: Column(
+                    children: [
+                      ListTile(
+                        leading: const _ActionIcon(
+                          icon: Icons.lock_reset_rounded,
+                          color: AppColors.primary,
+                        ),
+                        title: const Text('Ubah kata sandi'),
+                        subtitle: const Text(
+                          'Perbarui kata sandi akun dan akhiri sesi lain.',
+                        ),
+                        trailing: const Icon(
+                          Icons.chevron_right_rounded,
+                          size: 20,
+                        ),
+                        onTap: () => _changePassword(context),
+                      ),
+                      const _InfoDivider(),
+                      ListTile(
+                        leading: const _ActionIcon(
+                          icon: Icons.logout_rounded,
+                          color: AppColors.danger,
+                        ),
+                        title: Text(
+                          'Keluar',
+                          style: TextStyle(color: theme.colorScheme.error),
+                        ),
+                        subtitle: Text(
+                          controller.session?.user.email.isNotEmpty == true
+                              ? 'Masuk sebagai ${controller.session!.user.email}'
+                              : 'Akhiri sesi login di perangkat ini.',
+                        ),
+                        trailing: const Icon(
+                          Icons.chevron_right_rounded,
+                          size: 20,
+                        ),
+                        onTap: () => _logout(context),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               if (controller.storageError != null) ...[
                 const SizedBox(height: 16),
                 Container(
@@ -286,9 +611,9 @@ class ProfileScreen extends StatelessWidget {
                   padding: const EdgeInsets.all(13),
                   decoration: BoxDecoration(
                     color: theme.colorScheme.errorContainer.withValues(
-                      alpha: 0.5,
+                      alpha: 0.45,
                     ),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
                     controller.storageError!,
@@ -336,155 +661,84 @@ class _ProfileHeader extends StatelessWidget {
     final theme = Theme.of(context);
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [
-            AppColors.primaryDeep,
-            AppColors.primary,
-            Color(0xFF0D9488),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.85),
         ),
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primary.withValues(alpha: 0.2),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
       ),
-      child: Stack(
+      child: Column(
         children: [
-          Positioned(
-            right: -36,
-            top: -48,
-            child: Container(
-              width: 150,
-              height: 150,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white.withValues(alpha: 0.07),
-              ),
-            ),
-          ),
-          Column(
+          Row(
             children: [
-              Row(
-                children: [
-                  Container(
-                    width: 62,
-                    height: 62,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.5),
-                        width: 2,
-                      ),
-                    ),
-                    child: Text(
-                      profile.inisial,
-                      style: const TextStyle(
-                        color: AppColors.primary,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          profile.nama,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 19,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -0.4,
-                          ),
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          profile.jabatan,
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.72),
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          profile.sekolah,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.88),
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: 'Edit profil',
-                    onPressed: onEdit,
-                    style: IconButton.styleFrom(
-                      backgroundColor: Colors.white.withValues(alpha: 0.13),
-                      foregroundColor: Colors.white,
-                    ),
-                    icon: const Icon(Icons.edit_rounded, size: 18),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 18),
-              Container(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.09),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.08),
+              CircleAvatar(
+                radius: 25,
+                backgroundColor: theme.colorScheme.primary.withValues(
+                  alpha: 0.10,
+                ),
+                child: Text(
+                  profile.inisial,
+                  style: TextStyle(
+                    color: theme.colorScheme.primary,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-                child: Row(
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _HeaderStat(label: 'Modul', value: totalModul),
-                    _StatDivider(),
-                    _HeaderStat(label: 'Terbit', value: totalTerbit),
-                    _StatDivider(),
-                    _HeaderStat(label: 'Favorit', value: totalFavorit),
+                    Text(
+                      profile.nama,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      profile.jabatan,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      profile.sekolah,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
                   ],
                 ),
               ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  Icon(
-                    Icons.verified_user_outlined,
-                    size: 13,
-                    color: Colors.white.withValues(alpha: 0.65),
-                  ),
-                  const SizedBox(width: 5),
-                  Expanded(
-                    child: Text(
-                      'Akun guru · Perangkat ajar Kurikulum Merdeka',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: Colors.white.withValues(alpha: 0.65),
-                        fontSize: 9.5,
-                      ),
-                    ),
-                  ),
-                ],
+              IconButton(
+                tooltip: 'Edit profil',
+                onPressed: onEdit,
+                icon: const Icon(Icons.edit_outlined, size: 18),
               ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Divider(
+            height: 1,
+            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.7),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              _HeaderStat(label: 'Modul', value: totalModul),
+              _StatDivider(),
+              _HeaderStat(label: 'Terbit', value: totalTerbit),
+              _StatDivider(),
+              _HeaderStat(label: 'Favorit', value: totalFavorit),
             ],
           ),
         ],
@@ -501,24 +755,27 @@ class _HeaderStat extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Expanded(
       child: Column(
         children: [
-          Text(
-            '$value',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 20,
-              fontWeight: FontWeight.w800,
+          TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0.0, end: value.toDouble()),
+            duration: const Duration(milliseconds: 650),
+            curve: Curves.easeOutCubic,
+            builder: (context, animated, _) => Text(
+              '${animated.round()}',
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: theme.colorScheme.onSurface,
+              ),
             ),
           ),
           const SizedBox(height: 1),
           Text(
             label,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.68),
-              fontSize: 9.5,
-              fontWeight: FontWeight.w500,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
         ],
@@ -533,7 +790,8 @@ class _StatDivider extends StatelessWidget {
     return Container(
       width: 1,
       height: 26,
-      color: Colors.white.withValues(alpha: 0.16),
+      color: Theme.of(context).colorScheme.outlineVariant
+          .withValues(alpha: 0.7),
     );
   }
 }
@@ -557,8 +815,8 @@ class _InfoTile extends StatelessWidget {
         width: 36,
         height: 36,
         decoration: BoxDecoration(
-          color: theme.colorScheme.primary.withValues(alpha: 0.09),
-          borderRadius: BorderRadius.circular(10),
+          color: theme.colorScheme.primary.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(6),
         ),
         child: Icon(icon, size: 18, color: theme.colorScheme.primary),
       ),
@@ -592,8 +850,8 @@ class _ActionIcon extends StatelessWidget {
       width: 36,
       height: 36,
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(10),
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(6),
       ),
       child: Icon(icon, size: 18, color: color),
     );
@@ -608,9 +866,41 @@ class _InfoDivider extends StatelessWidget {
     return Divider(
       height: 1,
       indent: 62,
-      color: Theme.of(
-        context,
-      ).colorScheme.outlineVariant.withValues(alpha: 0.4),
+      color: Theme.of(context).colorScheme.outlineVariant
+          .withValues(alpha: 0.4),
+    );
+  }
+}
+
+class _ReportRow extends StatelessWidget {
+  const _ReportRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+          Text(
+            value,
+            style: theme.textTheme.labelLarge?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -88,7 +88,7 @@ class _StringListEditorState extends State<StringListEditor> {
                 style: FilledButton.styleFrom(
                   padding: EdgeInsets.zero,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(6),
                   ),
                 ),
                 child: const Icon(Icons.add_rounded),
@@ -114,7 +114,7 @@ class _StringListEditorState extends State<StringListEditor> {
               color: theme.colorScheme.surfaceContainerHighest.withValues(
                 alpha: 0.35,
               ),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(6),
             ),
             child: Text(
               widget.emptyText,
@@ -134,7 +134,7 @@ class _StringListEditorState extends State<StringListEditor> {
                   color: theme.colorScheme.surfaceContainerHighest.withValues(
                     alpha: 0.3,
                   ),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(6),
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -145,7 +145,9 @@ class _StringListEditorState extends State<StringListEditor> {
                       margin: const EdgeInsets.only(top: 2),
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
-                        color: theme.colorScheme.primary.withValues(alpha: 0.12),
+                        color: theme.colorScheme.primary.withValues(
+                          alpha: 0.12,
+                        ),
                         shape: BoxShape.circle,
                       ),
                       child: Text(

@@ -32,12 +32,18 @@ class ActivityScreen extends StatelessWidget {
     );
     if (!confirmed || !context.mounted) return;
 
-    await AppScope.read(context).hapusSemuaAktivitas();
+    final berhasil = await AppScope.read(context).hapusSemuaAktivitas();
     if (!context.mounted) return;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
-        const SnackBar(content: Text('Riwayat aktivitas dibersihkan.')),
+        SnackBar(
+          content: Text(
+            berhasil
+                ? 'Riwayat aktivitas dibersihkan.'
+                : 'Riwayat aktivitas gagal dibersihkan dari server.',
+          ),
+        ),
       );
   }
 
@@ -67,8 +73,7 @@ class ActivityScreen extends StatelessWidget {
           ? const EmptyState(
               icon: Icons.timeline_rounded,
               title: 'Belum ada aktivitas',
-              message:
-                  'Setiap modul yang kamu buat, ubah, terbitkan, atau hapus akan tercatat di sini.',
+              message: 'Setiap modul yang kamu buat, ubah, terbitkan, atau hapus akan tercatat di sini.',
             )
           : PageWidth(
               maxWidth: 820,
@@ -84,9 +89,9 @@ class ActivityScreen extends StatelessWidget {
                           height: 36,
                           decoration: BoxDecoration(
                             color: theme.colorScheme.primary.withValues(
-                              alpha: 0.09,
+                              alpha: 0.08,
                             ),
-                            borderRadius: BorderRadius.circular(11),
+                            borderRadius: BorderRadius.circular(6),
                           ),
                           child: Icon(
                             Icons.history_rounded,
@@ -133,11 +138,7 @@ class ActivityScreen extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(horizontal: 14),
                         child: Column(
                           children: [
-                            for (
-                              var i = 0;
-                              i < group.value.length;
-                              i++
-                            ) ...[
+                            for (var i = 0; i < group.value.length; i++) ...[
                               ActivityTile(
                                 entry: group.value[i],
                                 onTap: () {
@@ -158,9 +159,8 @@ class ActivityScreen extends StatelessWidget {
                                   }
                                   Navigator.of(context).push<void>(
                                     MaterialPageRoute<void>(
-                                      builder: (_) => ModulDetailScreen(
-                                        modulId: modul.id,
-                                      ),
+                                      builder: (_) =>
+                                          ModulDetailScreen(modulId: modul.id),
                                     ),
                                   );
                                 },

@@ -1,12 +1,18 @@
-import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import '../data/api_app_repository.dart';
+import '../data/app_repository.dart';
 import '../data/app_storage.dart';
+import '../data/auth_repository.dart';
+import '../data/auth_session_store.dart';
+import '../data/local_app_repository.dart';
 import '../data/models/activity_entry.dart';
+import '../data/models/auth_session.dart';
 import '../data/models/modul_ajar.dart';
 import '../data/models/teacher_profile.dart';
+import '../data/report_service.dart';
 import '../data/seed_data.dart';
 
 enum ModulFilter {
@@ -48,19 +54,77 @@ class MapelSummary {
   double get progress => total == 0 ? 0 : terbit / total;
 }
 
-/// Sumber kebenaran tunggal untuk modul, aktivitas, profil, dan preferensi.
+/// Sumber kebenaran tunggal untuk sesi login, modul, aktivitas, profil,
+/// dan preferensi.
 class AppController extends ChangeNotifier {
-  AppController(this._storage, {DateTime Function()? now})
-    : _now = now ?? DateTime.now;
+  /// Konstruktor untuk pengujian dan mode tanpa server.
+  ///
+  /// Mode lokal otomatis memakai sesi demo sehingga test widget tidak perlu
+  /// melewati layar login.
+  AppController(
+    AppStorage storage, {
+    DateTime Function()? now,
+    ReportService? reportService,
+  }) : this.withRepository(
+         LocalAppRepository(storage),
+         now: now,
+         reportService: reportService,
+       );
 
-  static const String modulesKey = 'modulajar.modules.v1';
-  static const String activitiesKey = 'modulajar.activities.v1';
-  static const String profileKey = 'modulajar.profile.v1';
-  static const String themeKey = 'modulajar.theme.v1';
+  /// Konstruktor produksi yang memakai REST API dan login.
+  factory AppController.production() {
+    final repository = ApiAppRepository();
+    final reportService = ReportService();
+    final controller = AppController.withRepository(
+      repository,
+      reportService: reportService,
+      authRepository: ApiAuthRepository(),
+      authSessionStore: SharedPreferencesAuthSessionStore(),
+    );
+
+    repository.tokenProvider = () => controller.session?.token;
+    repository.onUnauthorized = controller.handleUnauthorized;
+    reportService.tokenProvider = () => controller.session?.token;
+    reportService.onUnauthorized = controller.handleUnauthorized;
+    return controller;
+  }
+
+  /// Konstruktor dengan repository yang dapat diinjeksi.
+  AppController.withRepository(
+    this._repository, {
+    DateTime Function()? now,
+    ReportService? reportService,
+    AuthRepository? authRepository,
+    AuthSessionStore? authSessionStore,
+  }) : _now = now ?? DateTime.now,
+       _reportService = reportService ?? ReportService(),
+       _authRepository = authRepository,
+       _authSessionStore = authSessionStore;
+
+  static const String modulesKey = AppStorageKeys.modules;
+  static const String activitiesKey = AppStorageKeys.activities;
+  static const String profileKey = AppStorageKeys.profile;
+  static const String themeKey = AppStorageKeys.theme;
+  static const String initializedKey = AppStorageKeys.initialized;
 
   static const int _maxActivities = 80;
 
-  final AppStorage _storage;
+  static final AuthSession _demoSession = AuthSession(
+    token: 'local-demo',
+    expiresAt: null,
+    user: const AuthUser(
+      id: 0,
+      nama: 'Rizal Pratama',
+      sekolah: 'SMA Negeri 1 Bandung',
+      nip: '198705122015031004',
+      email: 'rizal.pratama@sekolah.id',
+    ),
+  );
+
+  final AppRepository _repository;
+  final ReportService _reportService;
+  final AuthRepository? _authRepository;
+  final AuthSessionStore? _authSessionStore;
   final DateTime Function() _now;
   final Random _random = Random();
 
@@ -68,10 +132,18 @@ class AppController extends ChangeNotifier {
   List<ActivityEntry> _activities = [];
   TeacherProfile _profile = TeacherProfile.contoh;
   ThemeMode _themeMode = ThemeMode.system;
+  AuthSession? _session;
   bool _isReady = false;
+  bool _authBusy = false;
   String? _storageError;
+  String? _authError;
 
   bool get isReady => _isReady;
+  bool get isAuthenticated => _session != null;
+  bool get canLogout => _authRepository != null;
+  bool get authBusy => _authBusy;
+  AuthSession? get session => _session;
+  String? get authError => _authError;
   String? get storageError => _storageError;
   TeacherProfile get profile => _profile;
   ThemeMode get themeMode => _themeMode;
@@ -113,10 +185,7 @@ class AppController extends ChangeNotifier {
         terbit: entry.value
             .where((modul) => modul.status == ModulStatus.terbit)
             .length,
-        totalJp: entry.value.fold(
-          0,
-          (total, modul) => total + modul.alokasiJp,
-        ),
+        totalJp: entry.value.fold(0, (total, modul) => total + modul.alokasiJp),
       );
     }).toList();
 
@@ -185,60 +254,263 @@ class AppController extends ChangeNotifier {
     return list;
   }
 
+  /// Memulihkan sesi tersimpan lalu memuat data awal.
   Future<void> initialize() async {
-    final now = _now();
+    _authError = null;
     try {
-      final raw = await Future.wait<String?>([
-        _storage.read(modulesKey),
-        _storage.read(activitiesKey),
-        _storage.read(profileKey),
-        _storage.read(themeKey),
-      ]);
-
-      final modulesRaw = raw[0];
-      final activitiesRaw = raw[1];
-      final profileRaw = raw[2];
-      final themeRaw = raw[3];
-
-      if (modulesRaw == null) {
-        _modules = buildSeedModules(now);
-        _activities = buildSeedActivities(_modules, now);
-        await _writeModulesAndActivities();
+      if (_authRepository == null) {
+        _session = _demoSession;
       } else {
-        _modules = _decodeList(modulesRaw, ModulAjar.fromJson);
-        _activities = _decodeList(activitiesRaw, ActivityEntry.fromJson);
-        _modules.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
-      }
-
-      if (profileRaw != null) {
-        try {
-          final decoded = jsonDecode(profileRaw);
-          if (decoded is Map<String, dynamic>) {
-            _profile = TeacherProfile.fromJson(decoded);
+        _session = await _authSessionStore?.read();
+        final current = _session;
+        if (current != null) {
+          if (current.isExpired) {
+            await _clearSession();
+            _authError = 'Sesi sudah berakhir. Silakan masuk kembali.';
+          } else {
+            try {
+              final user = await _authRepository!.me(current.token);
+              _session = AuthSession(
+                token: current.token,
+                expiresAt: current.expiresAt,
+                user: user,
+              );
+              await _authSessionStore?.write(_session!);
+              _profile = user.profile;
+            } on AuthException catch (error) {
+              await _clearSession();
+              _authError = error.message;
+            }
           }
-        } catch (_) {
-          _profile = TeacherProfile.contoh;
         }
       }
 
-      _themeMode = ThemeMode.values.firstWhere(
-        (mode) => mode.name == themeRaw,
-        orElse: () => ThemeMode.system,
-      );
+      if (_authRepository != null && _session == null) {
+        _modules = [];
+        _activities = [];
+        _isReady = true;
+        notifyListeners();
+        return;
+      }
+
+      await _loadData();
       _storageError = null;
     } catch (error, stackTrace) {
-      debugPrint('Gagal memuat data lokal: $error\n$stackTrace');
-      _storageError =
-          'Data lokal tidak dapat dibaca. Aplikasi memakai data contoh sementara.';
-      _modules = buildSeedModules(now);
-      _activities = buildSeedActivities(_modules, now);
+      debugPrint('Gagal memuat data: $error\n$stackTrace');
+      _storageError = error is AppRepositoryException
+          ? error.message
+          : 'Data tidak dapat dimuat dari server. Periksa koneksi dan container Docker.';
+      _modules = [];
+      _activities = [];
     } finally {
       _isReady = true;
       notifyListeners();
     }
   }
 
-  Future<ModulAjar> tambahModul(ModulAjar modul) async {
+  Future<void> muatUlang() => initialize();
+
+  Future<void> _loadData() async {
+    final now = _now();
+    final snapshot = await _repository.load();
+    _profile = snapshot.profile;
+    _themeMode = snapshot.themeMode;
+
+    if (!snapshot.initialized) {
+      _modules = buildSeedModules(now);
+      _activities = buildSeedActivities(_modules, now);
+      await _repository.saveAll(
+        modules: _modules,
+        activities: _activities,
+        profile: _profile,
+        themeMode: _themeMode,
+      );
+    } else {
+      _modules = [...snapshot.modules]
+        ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+      _activities = [...snapshot.activities];
+    }
+  }
+
+  Future<bool> login(String email, String password) async {
+    final repository = _authRepository;
+    if (repository == null) {
+      _session = _demoSession;
+      notifyListeners();
+      return true;
+    }
+    if (_authBusy) return false;
+
+    _authBusy = true;
+    _authError = null;
+    notifyListeners();
+
+    try {
+      final session = await repository.login(
+        email: email.trim(),
+        password: password,
+      );
+      return await _applySession(session);
+    } on AuthException catch (error) {
+      _authError = error.message;
+      return false;
+    } catch (error) {
+      debugPrint('Login gagal: $error');
+      _authError =
+          'Tidak dapat terhubung ke server. Periksa koneksi dan container Docker.';
+      return false;
+    } finally {
+      _authBusy = false;
+      _isReady = true;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> register({
+    required String nama,
+    required String sekolah,
+    required String email,
+    required String password,
+  }) async {
+    final repository = _authRepository;
+    if (repository == null) return login(email, password);
+    if (_authBusy) return false;
+
+    _authBusy = true;
+    _authError = null;
+    notifyListeners();
+
+    try {
+      final session = await repository.register(
+        nama: nama.trim(),
+        sekolah: sekolah.trim(),
+        email: email.trim(),
+        password: password,
+      );
+      return await _applySession(session);
+    } on AuthException catch (error) {
+      _authError = error.message;
+      return false;
+    } catch (error) {
+      debugPrint('Registrasi gagal: $error');
+      _authError =
+          'Tidak dapat terhubung ke server. Periksa koneksi dan container Docker.';
+      return false;
+    } finally {
+      _authBusy = false;
+      _isReady = true;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> _applySession(AuthSession session) async {
+    _session = session;
+    _profile = session.user.profile;
+    try {
+      await _authSessionStore?.write(session);
+    } catch (error) {
+      debugPrint('Sesi tidak dapat disimpan di perangkat: $error');
+    }
+
+    _isReady = false;
+    notifyListeners();
+
+    try {
+      await _loadData();
+      _storageError = null;
+    } catch (error) {
+      debugPrint('Data gagal dimuat setelah login: $error');
+      _storageError = error is AppRepositoryException
+          ? error.message
+          : 'Data tidak dapat dimuat dari server.';
+    }
+    return true;
+  }
+
+  Future<void> logout() async {
+    final token = _session?.token;
+    if (_authRepository != null && token != null) {
+      try {
+        await _authRepository.logout(token);
+      } on Exception catch (error) {
+        debugPrint('Logout server gagal: $error');
+      }
+    }
+
+    await _clearSession();
+    _modules = [];
+    _activities = [];
+    _profile = TeacherProfile.contoh;
+    _themeMode = ThemeMode.system;
+    _storageError = null;
+    _authError = null;
+    notifyListeners();
+  }
+
+  /// Dipanggil repository ketika server membalas 401.
+  Future<void> handleUnauthorized() async {
+    if (_session == null) return;
+    await _clearSession();
+    _modules = [];
+    _activities = [];
+    _profile = TeacherProfile.contoh;
+    _themeMode = ThemeMode.system;
+    _storageError = null;
+    _authError = 'Sesi sudah berakhir. Silakan masuk kembali.';
+    notifyListeners();
+  }
+
+  Future<void> _clearSession() async {
+    _session = null;
+    try {
+      await _authSessionStore?.clear();
+    } catch (error) {
+      debugPrint('Sesi tidak dapat dihapus dari perangkat: $error');
+    }
+  }
+
+  Future<ReportSummary> muatRingkasanServer() {
+    return _reportService.fetchSummary();
+  }
+
+  /// Mengambil berkas CSV rekap modul milik guru yang sedang login.
+  Future<String> muatCsvModul() {
+    return _reportService.fetchModulesCsv();
+  }
+
+  /// Mengubah kata sandi akun yang sedang login.
+  ///
+  /// Mengembalikan `true` bila server menerima perubahan. Pesan kesalahan
+  /// disimpan pada [authError] agar dapat ditampilkan oleh UI.
+  Future<bool> ubahKataSandi({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final repository = _authRepository;
+    final token = _session?.token;
+    if (repository == null || token == null) return false;
+
+    _authError = null;
+    try {
+      await repository.changePassword(
+        token: token,
+        currentPassword: currentPassword,
+        newPassword: newPassword,
+      );
+      return true;
+    } on AuthException catch (error) {
+      _authError = error.message;
+      notifyListeners();
+      return false;
+    } catch (error) {
+      debugPrint('Ubah kata sandi gagal: $error');
+      _authError = 'Kata sandi tidak berhasil diubah. Periksa koneksi.';
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<ModulAjar?> tambahModul(ModulAjar modul) async {
     final now = _now();
     final created = modul.copyWith(
       id: _newId('modul'),
@@ -246,10 +518,22 @@ class AppController extends ChangeNotifier {
       updatedAt: now,
     );
     _modules.insert(0, created);
-    _log(ActivityType.dibuat, created, now);
+    final activity = _log(ActivityType.dibuat, created, now);
     notifyListeners();
-    await _writeModulesAndActivities();
-    return created;
+
+    try {
+      final saved = await _repository.createModul(created);
+      _replaceModule(saved);
+      await _tryAddActivity(activity);
+      _storageError = null;
+      notifyListeners();
+      return saved;
+    } catch (error) {
+      _modules.removeWhere((item) => item.id == created.id);
+      _activities.removeWhere((item) => item.id == activity.id);
+      _reportError(error, 'Modul tidak berhasil disimpan ke server.');
+      return null;
+    }
   }
 
   Future<ModulAjar?> perbaruiModul(ModulAjar modul) async {
@@ -257,12 +541,27 @@ class AppController extends ChangeNotifier {
     if (index == -1) return null;
 
     final now = _now();
+    final previous = _modules[index];
     final updated = modul.copyWith(updatedAt: now);
     _modules[index] = updated;
-    _log(ActivityType.diperbarui, updated, now);
+    final activity = _log(ActivityType.diperbarui, updated, now);
     notifyListeners();
-    await _writeModulesAndActivities();
-    return updated;
+
+    try {
+      final saved = await _repository.updateModul(updated);
+      _replaceModule(saved);
+      await _tryAddActivity(activity);
+      _storageError = null;
+      notifyListeners();
+      return saved;
+    } catch (error) {
+      if (index < _modules.length) {
+        _modules[index] = previous;
+      }
+      _activities.removeWhere((item) => item.id == activity.id);
+      _reportError(error, 'Perubahan modul tidak berhasil disimpan ke server.');
+      return null;
+    }
   }
 
   Future<ModulAjar?> hapusModul(String id) async {
@@ -270,18 +569,42 @@ class AppController extends ChangeNotifier {
     if (index == -1) return null;
 
     final removed = _modules.removeAt(index);
-    _log(ActivityType.dihapus, removed, _now());
+    final activity = _log(ActivityType.dihapus, removed, _now());
     notifyListeners();
-    await _writeModulesAndActivities();
-    return removed;
+
+    try {
+      await _repository.deleteModul(id);
+      await _tryAddActivity(activity);
+      _storageError = null;
+      notifyListeners();
+      return removed;
+    } catch (error) {
+      if (!_modules.any((modul) => modul.id == removed.id)) {
+        _modules.insert(min(index, _modules.length), removed);
+      }
+      _activities.removeWhere((item) => item.id == activity.id);
+      _reportError(error, 'Modul tidak berhasil dihapus dari server.');
+      return null;
+    }
   }
 
   Future<void> pulihkanModul(ModulAjar modul) async {
     if (cariModul(modul.id) != null) return;
+
     _modules.insert(0, modul);
-    _log(ActivityType.dipulihkan, modul, _now());
+    final activity = _log(ActivityType.dipulihkan, modul, _now());
     notifyListeners();
-    await _writeModulesAndActivities();
+
+    try {
+      await _repository.restoreModul(modul);
+      await _tryAddActivity(activity);
+      _storageError = null;
+      notifyListeners();
+    } catch (error) {
+      _modules.removeWhere((item) => item.id == modul.id);
+      _activities.removeWhere((item) => item.id == activity.id);
+      _reportError(error, 'Modul tidak berhasil dipulihkan di server.');
+    }
   }
 
   Future<ModulAjar?> duplikatModul(String id) async {
@@ -303,34 +626,58 @@ class AppController extends ChangeNotifier {
 
     final index = _modules.indexWhere((modul) => modul.id == id);
     _modules.insert(index == -1 ? 0 : index + 1, copy);
-    _log(ActivityType.diduplikasi, copy, now);
+    final activity = _log(ActivityType.diduplikasi, copy, now);
     notifyListeners();
-    await _writeModulesAndActivities();
-    return copy;
+
+    try {
+      final saved = await _repository.createModul(copy);
+      _replaceModule(saved);
+      await _tryAddActivity(activity);
+      _storageError = null;
+      notifyListeners();
+      return saved;
+    } catch (error) {
+      _modules.removeWhere((item) => item.id == copy.id);
+      _activities.removeWhere((item) => item.id == activity.id);
+      _reportError(error, 'Salinan modul tidak berhasil disimpan ke server.');
+      return null;
+    }
   }
 
-  Future<void> toggleFavorit(String id) async {
+  Future<bool> toggleFavorit(String id) async {
     final index = _modules.indexWhere((modul) => modul.id == id);
-    if (index == -1) return;
+    if (index == -1) return false;
 
-    _modules[index] = _modules[index].copyWith(
-      favorit: !_modules[index].favorit,
-    );
+    final previous = _modules[index];
+    final updated = previous.copyWith(favorit: !previous.favorit);
+    _modules[index] = updated;
     notifyListeners();
-    await _writeModules();
+
+    try {
+      await _repository.updateModul(updated);
+      _storageError = null;
+      notifyListeners();
+      return true;
+    } catch (error) {
+      if (index < _modules.length) {
+        _modules[index] = previous;
+      }
+      _reportError(error, 'Status favorit tidak berhasil disimpan.');
+      return false;
+    }
   }
 
   Future<ModulAjar?> ubahStatus(String id) async {
     final index = _modules.indexWhere((modul) => modul.id == id);
     if (index == -1) return null;
 
-    final current = _modules[index];
-    final next = current.status == ModulStatus.terbit
+    final previous = _modules[index];
+    final next = previous.status == ModulStatus.terbit
         ? ModulStatus.draft
         : ModulStatus.terbit;
-    final updated = current.copyWith(status: next, updatedAt: _now());
+    final updated = previous.copyWith(status: next, updatedAt: _now());
     _modules[index] = updated;
-    _log(
+    final activity = _log(
       next == ModulStatus.terbit
           ? ActivityType.diterbitkan
           : ActivityType.ditarikDraft,
@@ -338,42 +685,155 @@ class AppController extends ChangeNotifier {
       updated.updatedAt,
     );
     notifyListeners();
-    await _writeModulesAndActivities();
-    return updated;
+
+    try {
+      final saved = await _repository.updateModul(updated);
+      _replaceModule(saved);
+      await _tryAddActivity(activity);
+      _storageError = null;
+      notifyListeners();
+      return saved;
+    } catch (error) {
+      if (index < _modules.length) {
+        _modules[index] = previous;
+      }
+      _activities.removeWhere((item) => item.id == activity.id);
+      _reportError(error, 'Status modul tidak berhasil disimpan ke server.');
+      return null;
+    }
   }
 
-  Future<void> hapusSemuaAktivitas() async {
+  Future<bool> hapusSemuaAktivitas() async {
+    final previous = [..._activities];
     _activities.clear();
     notifyListeners();
-    await _persist(activitiesKey, jsonEncode(const []));
+
+    try {
+      await _repository.clearActivities();
+      _storageError = null;
+      notifyListeners();
+      return true;
+    } catch (error) {
+      _activities = previous;
+      _reportError(error, 'Riwayat aktivitas tidak berhasil dibersihkan.');
+      return false;
+    }
   }
 
-  Future<void> perbaruiProfil(TeacherProfile profile) async {
+  Future<bool> perbaruiProfil(TeacherProfile profile) async {
+    final previous = _profile;
     _profile = profile;
     notifyListeners();
-    await _persist(profileKey, jsonEncode(profile.toJson()));
+
+    try {
+      await _repository.saveProfile(profile);
+      final current = _session;
+      if (current != null) {
+        _session = AuthSession(
+          token: current.token,
+          expiresAt: current.expiresAt,
+          user: current.user.copyWith(
+            nama: profile.nama,
+            sekolah: profile.sekolah,
+            nip: profile.nip,
+            email: profile.email,
+          ),
+        );
+        try {
+          await _authSessionStore?.write(_session!);
+        } catch (error) {
+          debugPrint('Sesi tidak dapat diperbarui di perangkat: $error');
+        }
+      }
+      _storageError = null;
+      notifyListeners();
+      return true;
+    } catch (error) {
+      _profile = previous;
+      _reportError(error, 'Profil tidak berhasil disimpan ke server.');
+      return false;
+    }
   }
 
   Future<void> ubahTema(ThemeMode mode) async {
     if (_themeMode == mode) return;
+    final previous = _themeMode;
     _themeMode = mode;
     notifyListeners();
-    await _persist(themeKey, mode.name);
+
+    try {
+      await _repository.saveTheme(mode);
+      _storageError = null;
+      notifyListeners();
+    } catch (error) {
+      _themeMode = previous;
+      _reportError(error, 'Preferensi tema tidak berhasil disimpan.');
+    }
   }
 
-  Future<void> muatDataContoh() async {
+  Future<bool> muatDataContoh() async {
     final now = _now();
+    final previousModules = [..._modules];
+    final previousActivities = [..._activities];
     _modules = buildSeedModules(now);
     _activities = buildSeedActivities(_modules, now);
     notifyListeners();
-    await _writeModulesAndActivities();
+
+    try {
+      await _repository.saveAll(
+        modules: _modules,
+        activities: _activities,
+        profile: _profile,
+        themeMode: _themeMode,
+      );
+      _storageError = null;
+      notifyListeners();
+      return true;
+    } catch (error) {
+      _modules = previousModules;
+      _activities = previousActivities;
+      _reportError(error, 'Data contoh tidak berhasil disimpan ke server.');
+      return false;
+    }
   }
 
-  Future<void> hapusSemuaModul() async {
+  Future<bool> hapusSemuaModul() async {
+    final previousModules = [..._modules];
+    final previousActivities = [..._activities];
     _modules.clear();
     _activities.clear();
     notifyListeners();
-    await _writeModulesAndActivities();
+
+    try {
+      await _repository.saveAll(
+        modules: const [],
+        activities: const [],
+        profile: _profile,
+        themeMode: _themeMode,
+      );
+      _storageError = null;
+      notifyListeners();
+      return true;
+    } catch (error) {
+      _modules = previousModules;
+      _activities = previousActivities;
+      _reportError(error, 'Data tidak berhasil dihapus dari server.');
+      return false;
+    }
+  }
+
+  Future<void> _tryAddActivity(ActivityEntry entry) async {
+    try {
+      await _repository.addActivity(entry);
+    } catch (error) {
+      debugPrint('Aktivitas gagal disimpan: $error');
+    }
+  }
+
+  void _replaceModule(ModulAjar modul) {
+    final index = _modules.indexWhere((item) => item.id == modul.id);
+    if (index == -1) return;
+    _modules[index] = modul;
   }
 
   String _newId(String prefix) {
@@ -382,77 +842,32 @@ class AppController extends ChangeNotifier {
     return '${prefix}_${timestamp}_$suffix';
   }
 
-  void _log(ActivityType type, ModulAjar modul, DateTime timestamp) {
-    _activities.insert(
-      0,
-      ActivityEntry(
-        id: _newId('aktivitas'),
-        type: type,
-        modulId: modul.id,
-        judulModul: modul.judul,
-        timestamp: timestamp,
-      ),
+  ActivityEntry _log(ActivityType type, ModulAjar modul, DateTime timestamp) {
+    final entry = ActivityEntry(
+      id: _newId('aktivitas'),
+      type: type,
+      modulId: modul.id,
+      judulModul: modul.judul,
+      timestamp: timestamp,
     );
+    _activities.insert(0, entry);
     if (_activities.length > _maxActivities) {
       _activities.removeRange(_maxActivities, _activities.length);
     }
+    return entry;
   }
 
-  List<T> _decodeList<T>(
-    String? raw,
-    T Function(Map<String, dynamic>) fromJson,
-  ) {
-    if (raw == null || raw.trim().isEmpty) return [];
-    try {
-      final decoded = jsonDecode(raw);
-      if (decoded is! List) return [];
-      final result = <T>[];
-      for (final item in decoded) {
-        if (item is! Map) continue;
-        try {
-          result.add(fromJson(Map<String, dynamic>.from(item)));
-        } catch (error) {
-          debugPrint('Melewati data rusak: $error');
-        }
-      }
-      return result;
-    } catch (error) {
-      debugPrint('Gagal membaca JSON: $error');
-      return [];
-    }
+  void _reportError(Object error, String fallback) {
+    debugPrint('Operasi data gagal: $error');
+    _storageError = error is AppRepositoryException ? error.message : fallback;
+    notifyListeners();
   }
 
-  Future<void> _writeModulesAndActivities() async {
-    await Future.wait([
-      _persist(
-        modulesKey,
-        jsonEncode(_modules.map((modul) => modul.toJson()).toList()),
-      ),
-      _persist(
-        activitiesKey,
-        jsonEncode(_activities.map((item) => item.toJson()).toList()),
-      ),
-    ]);
-  }
-
-  Future<void> _writeModules() async {
-    await _persist(
-      modulesKey,
-      jsonEncode(_modules.map((modul) => modul.toJson()).toList()),
-    );
-  }
-
-  Future<void> _persist(String key, String value) async {
-    try {
-      await _storage.write(key, value);
-      if (_storageError != null) {
-        _storageError = null;
-        notifyListeners();
-      }
-    } catch (error, stackTrace) {
-      debugPrint('Gagal menyimpan "$key": $error\n$stackTrace');
-      _storageError = 'Perubahan gagal disimpan ke penyimpanan lokal.';
-      notifyListeners();
-    }
+  @override
+  void dispose() {
+    _repository.close();
+    _reportService.close();
+    _authRepository?.close();
+    super.dispose();
   }
 }

@@ -14,8 +14,7 @@ List<ModulAjar> buildSeedModules(DateTime now) {
       kelas: 'X',
       semester: 'Ganjil',
       alokasiJp: 12,
-      deskripsi:
-          'Modul ini membahas bentuk umum persamaan kuadrat, metode penyelesaian, sifat-sifat fungsi kuadrat, serta penerapannya untuk menyelesaikan masalah kontekstual.',
+      deskripsi: 'Modul ini membahas bentuk umum persamaan kuadrat, metode penyelesaian, sifat-sifat fungsi kuadrat, serta penerapannya untuk menyelesaikan masalah kontekstual.',
       tujuanPembelajaran: const [
         'Menjelaskan bentuk umum persamaan kuadrat dan komponennya.',
         'Menyelesaikan persamaan kuadrat dengan pemfaktoran, melengkapkan kuadrat sempurna, dan rumus abc.',
@@ -35,8 +34,7 @@ List<ModulAjar> buildSeedModules(DateTime now) {
           'Pertemuan 2: latihan terbimbing tiga metode penyelesaian persamaan kuadrat.\n'
           'Pertemuan 3: investigasi grafik fungsi kuadrat menggunakan aplikasi grafik.\n'
           'Pertemuan 4: proyek mini analisis lintasan bola dan presentasi hasil.',
-      asesmen:
-          'Asesmen formatif melalui kuis interaktif dan lembar kerja kelompok. Asesmen sumatif berupa tes tertulis serta laporan proyek lintasan parabola.',
+      asesmen: 'Asesmen formatif melalui kuis interaktif dan lembar kerja kelompok. Asesmen sumatif berupa tes tertulis serta laporan proyek lintasan parabola.',
       status: ModulStatus.terbit,
       favorit: false,
       createdAt: daysAgo(14),
@@ -49,8 +47,7 @@ List<ModulAjar> buildSeedModules(DateTime now) {
       kelas: 'X',
       semester: 'Ganjil',
       alokasiJp: 8,
-      deskripsi:
-          'Peserta didik mempelajari hubungan gaya dan gerak melalui Hukum I, II, dan III Newton serta menerapkannya pada peristiwa sehari-hari.',
+      deskripsi: 'Peserta didik mempelajari hubungan gaya dan gerak melalui Hukum I, II, dan III Newton serta menerapkannya pada peristiwa sehari-hari.',
       tujuanPembelajaran: const [
         'Membedakan keadaan diam, bergerak lurus beraturan, dan bergerak dipercepat.',
         'Menerapkan Hukum I, II, dan III Newton dalam penyelesaian masalah.',
@@ -63,10 +60,8 @@ List<ModulAjar> buildSeedModules(DateTime now) {
         'Hukum III Newton',
         'Diagram gaya',
       ],
-      kegiatanPembelajaran:
-          'Pembelajaran diawali dengan demonstrasi tarik-meja, dilanjutkan praktikum gaya gesek menggunakan dinamometer. Peserta didik bekerja dalam kelompok untuk menganalisis data dan menyusun kesimpulan.',
-      asesmen:
-          'Observasi kinerja praktikum, laporan hasil percobaan, dan kuis akhir materi.',
+      kegiatanPembelajaran: 'Pembelajaran diawali dengan demonstrasi tarik-meja, dilanjutkan praktikum gaya gesek menggunakan dinamometer. Peserta didik bekerja dalam kelompok untuk menganalisis data dan menyusun kesimpulan.',
+      asesmen: 'Observasi kinerja praktikum, laporan hasil percobaan, dan kuis akhir materi.',
       status: ModulStatus.terbit,
       favorit: false,
       createdAt: daysAgo(20),
@@ -79,8 +74,7 @@ List<ModulAjar> buildSeedModules(DateTime now) {
       kelas: 'XI',
       semester: 'Ganjil',
       alokasiJp: 10,
-      deskripsi:
-          'Modul ini mengupas struktur dan fungsi organ ekskresi manusia, mekanisme pembentukan urine, serta gangguan yang dapat terjadi pada sistem ekskresi.',
+      deskripsi: 'Modul ini mengupas struktur dan fungsi organ ekskresi manusia, mekanisme pembentukan urine, serta gangguan yang dapat terjadi pada sistem ekskresi.',
       tujuanPembelajaran: const [
         'Mengidentifikasi organ-organ penyusun sistem ekskresi manusia.',
         'Menjelaskan proses pembentukan urine pada nefron.',
@@ -92,10 +86,8 @@ List<ModulAjar> buildSeedModules(DateTime now) {
         'Kulit, paru-paru, dan hati',
         'Gangguan sistem ekskresi',
       ],
-      kegiatanPembelajaran:
-          'Diskusi kelompok tentang organ ekskresi, studi kasus pasien gagal ginjal, dan pembuatan poster edukasi kesehatan ginjal.',
-      asesmen:
-          'Penilaian poster, presentasi kelompok, dan tes formatif pilihan ganda.',
+      kegiatanPembelajaran: 'Diskusi kelompok tentang organ ekskresi, studi kasus pasien gagal ginjal, dan pembuatan poster edukasi kesehatan ginjal.',
+      asesmen: 'Penilaian poster, presentasi kelompok, dan tes formatif pilihan ganda.',
       status: ModulStatus.draft,
       favorit: false,
       createdAt: daysAgo(3),
@@ -108,8 +100,7 @@ List<ModulAjar> buildSeedModules(DateTime now) {
       kelas: 'XI',
       semester: 'Ganjil',
       alokasiJp: 6,
-      deskripsi:
-          'Peserta didik belajar menyusun argumen yang logis dan santun, mengenali struktur teks argumentasi, serta berlatih berdebat dengan kaidah bahasa yang baik.',
+      deskripsi: 'Peserta didik belajar menyusun argumen yang logis dan santun, mengenali struktur teks argumentasi, serta berlatih berdebat dengan kaidah bahasa yang baik.',
       tujuanPembelajaran: const [
         'Mengidentifikasi struktur dan ciri kebahasaan teks argumentasi.',
         'Menyusun teks argumentasi dengan data pendukung yang relevan.',
@@ -121,10 +112,8 @@ List<ModulAjar> buildSeedModules(DateTime now) {
         'Konjungsi argumentatif',
         'Etika debat',
       ],
-      kegiatanPembelajaran:
-          'Membaca teks model, analisis struktur, latihan menulis argumen, kemudian simulasi debat kelas dengan topik isu lingkungan.',
-      asesmen:
-          'Asesmen formatif melalui draf tulisan, asesmen kinerja debat, dan rubrik penilaian argumen.',
+      kegiatanPembelajaran: 'Membaca teks model, analisis struktur, latihan menulis argumen, kemudian simulasi debat kelas dengan topik isu lingkungan.',
+      asesmen: 'Asesmen formatif melalui draf tulisan, asesmen kinerja debat, dan rubrik penilaian argumen.',
       status: ModulStatus.terbit,
       favorit: false,
       createdAt: daysAgo(12),
@@ -137,8 +126,7 @@ List<ModulAjar> buildSeedModules(DateTime now) {
       kelas: 'XII',
       semester: 'Genap',
       alokasiJp: 8,
-      deskripsi:
-          'Modul ini menelusuri latar belakang Perang Dunia II, kedatangan Jepang, masa pendudukan, hingga pengaruhnya terhadap pergerakan kemerdekaan Indonesia.',
+      deskripsi: 'Modul ini menelusuri latar belakang Perang Dunia II, kedatangan Jepang, masa pendudukan, hingga pengaruhnya terhadap pergerakan kemerdekaan Indonesia.',
       tujuanPembelajaran: const [
         'Menjelaskan latar belakang terjadinya Perang Dunia II.',
         'Menganalisis dampak pendudukan Jepang bagi masyarakat Indonesia.',
@@ -150,10 +138,8 @@ List<ModulAjar> buildSeedModules(DateTime now) {
         'Pendudukan Jepang di Indonesia',
         'Persiapan kemerdekaan',
       ],
-      kegiatanPembelajaran:
-          'Analisis sumber sejarah primer, diskusi timeline, dan pameran mini kronologi peristiwa.',
-      asesmen:
-          'Esai analitis, presentasi timeline, dan penilaian sikap dalam diskusi.',
+      kegiatanPembelajaran: 'Analisis sumber sejarah primer, diskusi timeline, dan pameran mini kronologi peristiwa.',
+      asesmen: 'Esai analitis, presentasi timeline, dan penilaian sikap dalam diskusi.',
       status: ModulStatus.draft,
       favorit: false,
       createdAt: daysAgo(18),
@@ -166,8 +152,7 @@ List<ModulAjar> buildSeedModules(DateTime now) {
       kelas: 'X',
       semester: 'Ganjil',
       alokasiJp: 12,
-      deskripsi:
-          'Pengantar berpikir komputasional dan pemrograman Python, mulai dari variabel, struktur kontrol, hingga proyek kecil pengolahan data sederhana.',
+      deskripsi: 'Pengantar berpikir komputasional dan pemrograman Python, mulai dari variabel, struktur kontrol, hingga proyek kecil pengolahan data sederhana.',
       tujuanPembelajaran: const [
         'Menjelaskan konsep variabel, tipe data, dan operator dalam Python.',
         'Menggunakan struktur percabangan dan perulangan untuk menyelesaikan masalah.',
@@ -182,8 +167,7 @@ List<ModulAjar> buildSeedModules(DateTime now) {
         'Fungsi',
         'Proyek mini',
       ],
-      kegiatanPembelajaran:
-          'Setiap pertemuan diawali tantangan kode singkat, dilanjutkan praktik di laboratorium komputer dan sesi berbagi solusi antar kelompok.',
+      kegiatanPembelajaran: 'Setiap pertemuan diawali tantangan kode singkat, dilanjutkan praktik di laboratorium komputer dan sesi berbagi solusi antar kelompok.',
       asesmen:
           'Portofolio kode, kuis daring, dan penilaian proyek mini presentasi.',
       status: ModulStatus.terbit,
@@ -198,8 +182,7 @@ List<ModulAjar> buildSeedModules(DateTime now) {
       kelas: 'XI',
       semester: 'Ganjil',
       alokasiJp: 10,
-      deskripsi:
-          'Membahas penyetaraan persamaan reaksi, konsep mol, dan perhitungan kuantitatif dalam reaksi kimia melalui percobaan sederhana.',
+      deskripsi: 'Membahas penyetaraan persamaan reaksi, konsep mol, dan perhitungan kuantitatif dalam reaksi kimia melalui percobaan sederhana.',
       tujuanPembelajaran: const [
         'Menyetarakan persamaan reaksi kimia.',
         'Menghubungkan konsep mol dengan massa, volume, dan jumlah partikel.',
@@ -211,10 +194,8 @@ List<ModulAjar> buildSeedModules(DateTime now) {
         'Massa molar',
         'Pereaksi pembatas',
       ],
-      kegiatanPembelajaran:
-          'Praktikum reaksi soda kue dan cuka, analisis data hasil percobaan, serta latihan perhitungan stoikiometri secara bertahap.',
-      asesmen:
-          'Laporan praktikum, latihan soal terstruktur, dan tes sumatif.',
+      kegiatanPembelajaran: 'Praktikum reaksi soda kue dan cuka, analisis data hasil percobaan, serta latihan perhitungan stoikiometri secara bertahap.',
+      asesmen: 'Laporan praktikum, latihan soal terstruktur, dan tes sumatif.',
       status: ModulStatus.terbit,
       favorit: false,
       createdAt: daysAgo(40),
@@ -227,8 +208,7 @@ List<ModulAjar> buildSeedModules(DateTime now) {
       kelas: 'XII',
       semester: 'Genap',
       alokasiJp: 6,
-      deskripsi:
-          'Eksplorasi ragam gerak, kostum, dan nilai kearifan lokal pada tari tradisional Nusantara, diakhiri dengan karya koreografi kelompok.',
+      deskripsi: 'Eksplorasi ragam gerak, kostum, dan nilai kearifan lokal pada tari tradisional Nusantara, diakhiri dengan karya koreografi kelompok.',
       tujuanPembelajaran: const [
         'Mengidentifikasi ragam gerak dan makna simbolik tari tradisional.',
         'Menganalisis nilai kearifan lokal dalam seni pertunjukan.',
@@ -240,10 +220,8 @@ List<ModulAjar> buildSeedModules(DateTime now) {
         'Makna simbolik tari',
         'Koreografi kelompok',
       ],
-      kegiatanPembelajaran:
-          'Menonton pertunjukan tari, wawancara singkat dengan pelaku seni lokal, latihan gerak, dan pementasan kelas.',
-      asesmen:
-          'Penilaian proses latihan, rubrik pertunjukan, dan refleksi tertulis.',
+      kegiatanPembelajaran: 'Menonton pertunjukan tari, wawancara singkat dengan pelaku seni lokal, latihan gerak, dan pementasan kelas.',
+      asesmen: 'Penilaian proses latihan, rubrik pertunjukan, dan refleksi tertulis.',
       status: ModulStatus.draft,
       favorit: true,
       createdAt: daysAgo(32),

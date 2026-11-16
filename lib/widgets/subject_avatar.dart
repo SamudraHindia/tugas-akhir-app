@@ -21,10 +21,8 @@ class SubjectAvatar extends StatelessWidget {
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: solid
-            ? visual.color
-            : visual.color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(size * 0.3),
+        color: solid ? visual.color : visual.color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(6),
       ),
       child: Icon(
         visual.icon,
